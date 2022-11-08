@@ -1,7 +1,11 @@
 package ru.aleksseii;
 
-public class Main {
+import ru.aleksseii.database.FlywayInitializer;
+
+public final class Main {
+
     public static void main(String[] args) {
-        System.out.println("Hello world!");
+
+        FlywayInitializer.initDB();
     }
 }
