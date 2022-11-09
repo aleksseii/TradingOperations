@@ -38,6 +38,10 @@ public final class OrganizationDAO implements CrudDAO<Organization> {
         this.connection = connection;
     }
 
+    /**
+     * @param id id to get instance by
+     * @return instance if found by id, empty instance otherwise
+     */
     @Override
     public @NotNull Organization get(int id) {
 

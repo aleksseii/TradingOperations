@@ -36,6 +36,10 @@ public final class ProductDAO implements CrudDAO<Product> {
         this.connection = connection;
     }
 
+    /**
+     * @param id id to get instance by
+     * @return instance if found by id, empty instance otherwise
+     */
     @Override
     public @NotNull Product get(int id) {
 

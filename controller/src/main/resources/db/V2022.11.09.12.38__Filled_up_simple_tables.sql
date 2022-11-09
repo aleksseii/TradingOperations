@@ -1,3 +1,7 @@
+-- noinspection SqlNoDataSourceInspectionForFile
+
+-- noinspection SqlResolveForFile
+
 INSERT INTO product(name, internal_code)
 VALUES ('product_1', 'code_1'),
        ('product_1', 'code_2'),
@@ -8,6 +12,6 @@ VALUES ('product_1', 'code_1'),
 
 INSERT INTO organization(inn, name, bank_account)
 VALUES (111, 'org_1', 'acc_1'),
-       (222, 'org_2', 'acc_2'),
-       (333, 'org_1', 'acc_3');
+       (222, 'org_1', 'acc_2'),
+       (333, 'org_3', 'acc_3');
        
