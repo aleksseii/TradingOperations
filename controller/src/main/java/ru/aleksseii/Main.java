@@ -6,6 +6,7 @@ import ru.aleksseii.database.ConnectionManager;
 import ru.aleksseii.database.FlywayInitializer;
 
 import java.sql.Connection;
+import java.sql.SQLException;
 
 public final class Main {
 
@@ -18,7 +19,9 @@ public final class Main {
             final Injector injector = Guice.createInjector(new TradingOperationsModule(connection));
 
 
-        } catch (RuntimeException e) {
+            connection.close();
+
+        } catch (RuntimeException | SQLException e) {
             System.err.println("Invalid database url provided");
             System.exit(0);
         }

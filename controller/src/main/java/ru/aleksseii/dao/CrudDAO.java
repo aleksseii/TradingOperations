@@ -10,9 +10,11 @@ public interface CrudDAO<T> {
 
     @NotNull List<@NotNull T> all();
 
-    @NotNull T update(@NotNull T entity);
+    int update(@NotNull T entity);
 
     void save(@NotNull T entity);
 
-    void delete(@NotNull T entity);
+    void delete(int id);
+
+    void deleteAll();
 }

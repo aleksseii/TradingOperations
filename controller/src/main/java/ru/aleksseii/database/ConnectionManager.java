@@ -12,13 +12,12 @@ public final class ConnectionManager {
 
     public static Connection getConnectionOrThrow() throws RuntimeException {
 
-        try (Connection connection = DriverManager.getConnection(
-                CREDENTIALS.getUrl(),
-                CREDENTIALS.getUsername(),
-                CREDENTIALS.getPassword()
-        )) {
-
-            return connection;
+        try {
+            return DriverManager.getConnection(
+                    CREDENTIALS.getUrl(),
+                    CREDENTIALS.getUsername(),
+                    CREDENTIALS.getPassword()
+            );
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
