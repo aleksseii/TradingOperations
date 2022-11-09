@@ -1,12 +1,11 @@
 CREATE TABLE organization(
     org_id          SERIAL          NOT NULL,
-    inn             BIGSERIAL       NOT NULL,
+    inn             BIGINT          NOT NULL UNIQUE,
     name            VARCHAR(50)     NOT NULL,
     bank_account    VARCHAR(50)     NOT NULL,
     
     CONSTRAINT organization_pk PRIMARY KEY(org_id)
 );
-
 
 CREATE TABLE waybill(
     waybill_id       SERIAL    NOT NULL,

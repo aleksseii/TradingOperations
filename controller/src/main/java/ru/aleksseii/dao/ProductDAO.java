@@ -55,6 +55,27 @@ public final class ProductDAO implements CrudDAO<Product> {
         return new Product();
     }
 
+    public @NotNull List<@NotNull Product> get(@NotNull String name) {
+
+        List<Product> resultProducts = new ArrayList<>();
+
+        try (PreparedStatement selectByNameStatement = connection.prepareStatement(SQL_SELECT_BY_NAME)) {
+
+            selectByNameStatement.setString(1, name);
+
+            try (ResultSet resultSet = selectByNameStatement.executeQuery()) {
+                while (resultSet.next()) {
+                    resultProducts.add(getProductFromResultSet(resultSet));
+                }
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return resultProducts;
+    }
+
     @Override
     public @NotNull List<@NotNull Product> all() {
 
@@ -100,6 +121,7 @@ public final class ProductDAO implements CrudDAO<Product> {
 
             insertStatement.setString(1, entity.name());
             insertStatement.setString(2, entity.internalCode());
+
             insertStatement.executeUpdate();
 
         } catch (SQLException e) {
@@ -131,29 +153,9 @@ public final class ProductDAO implements CrudDAO<Product> {
         }
     }
 
-    public @NotNull List<@NotNull Product> get(@NotNull String name) {
+    private static @NotNull Product getProductFromResultSet(@NotNull ResultSet resultSet)
+            throws SQLException {
 
-        List<Product> resultProducts = new ArrayList<>();
-
-        try (PreparedStatement selectByNameStatement = connection.prepareStatement(SQL_SELECT_BY_NAME)) {
-
-            selectByNameStatement.setString(1, name);
-
-            try (ResultSet resultSet = selectByNameStatement.executeQuery()) {
-                while (resultSet.next()) {
-                    resultProducts.add(getProductFromResultSet(resultSet));
-                }
-            }
-
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-
-        return resultProducts;
-    }
-
-    @NotNull
-    private static Product getProductFromResultSet(@NotNull ResultSet resultSet) throws SQLException {
         return new Product(
                 resultSet.getInt("product_id"),
                 resultSet.getString("name"),
