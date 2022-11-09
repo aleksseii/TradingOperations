@@ -3,7 +3,10 @@ package ru.aleksseii.dao;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.jetbrains.annotations.NotNull;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 import ru.aleksseii.database.ConnectionManager;
 import ru.aleksseii.database.FlywayInitializer;
 import ru.aleksseii.model.Product;
@@ -42,8 +45,9 @@ public final class ProductDAOTest {
     private final @NotNull ProductDAO productDAO = new ProductDAO(CONNECTION);
 
     @AfterAll
-    public static void closeConnection() {
+    static void closeConnection() {
 
+        FlywayInitializer.initDB();
         try {
             CONNECTION.close();
         } catch (SQLException e) {
@@ -52,7 +56,6 @@ public final class ProductDAOTest {
     }
 
     @BeforeEach
-    @AfterEach
     void initDB() {
         FlywayInitializer.initDB();
     }
@@ -85,7 +88,7 @@ public final class ProductDAOTest {
     }
 
     @Test
-    @DisplayName("Should update product")
+    @DisplayName("Should update Product instance")
     void shouldUpdateProduct() {
 
         int id = 3;
@@ -95,27 +98,28 @@ public final class ProductDAOTest {
         productDAO.update(expectedProduct);
         int sizeAfter = productDAO.all().size();
 
-        assertEquals(expectedProduct, productDAO.get(id));
         assertEquals(sizeBefore, sizeAfter);
+        assertEquals(expectedProduct, productDAO.get(id));
     }
 
     @Test
     @DisplayName("Should insert new Product instance")
-    void shouldSaveProduct() {
+    void shouldSaveNewProduct() {
 
         int sizeBefore = productDAO.all().size();
-        Product newProduct = new Product(sizeBefore + 1, "new product_6", "new code_6");
+        int nextId = sizeBefore + 1;
+        Product newProduct = new Product(nextId, "new product_6", "new code_6");
 
         productDAO.save(newProduct);
         int sizeAfter = productDAO.all().size();
 
         assertEquals(sizeBefore + 1, sizeAfter);
-        assertEquals(newProduct, productDAO.get(sizeAfter));
+        assertEquals(newProduct, productDAO.get(nextId));
     }
 
     @Test
     @DisplayName("Should delete Product instance by provided id")
-    void delete() {
+    void shouldDeleteProduct() {
 
         int id = EXISTING_ID1;
         int sizeBefore = productDAO.all().size();
@@ -128,7 +132,7 @@ public final class ProductDAOTest {
 
     @Test
     @DisplayName("Should delete all instances from Product table")
-    void deleteAll() {
+    void shouldDeleteAllProducts() {
 
         assertFalse(productDAO.all().isEmpty());
         productDAO.deleteAll();
