@@ -11,6 +11,9 @@ import java.util.List;
 @SuppressWarnings({ "SqlNoDataSourceInspection", "SqlResolve" })
 public final class WaybillDAO implements CrudDAO<Waybill> {
 
+    // TODO: 09.11.2022
+    //  create tests for WaybillDAO
+
     private static final @NotNull String SQL_SELECT_BY_ID = "SELECT * FROM waybill WHERE waybill_id = ?";
 
     private static final @NotNull String SQL_SELECT_ALL = "SELECT * FROM waybill";

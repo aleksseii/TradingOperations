@@ -1,3 +1,5 @@
+-- noinspection SqlNoDataSourceInspectionForFile
+
 CREATE TABLE organization(
     org_id          SERIAL          NOT NULL,
     inn             BIGINT          NOT NULL UNIQUE,
