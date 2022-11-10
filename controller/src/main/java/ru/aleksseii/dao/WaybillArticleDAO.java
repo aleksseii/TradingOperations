@@ -1,41 +1,44 @@
 package ru.aleksseii.dao;
 
-import com.google.inject.Inject;
 import org.jetbrains.annotations.NotNull;
-import ru.aleksseii.model.Waybill;
+import ru.aleksseii.model.WaybillArticle;
 
+import javax.inject.Inject;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
-@SuppressWarnings({ "SqlNoDataSourceInspection", "SqlResolve" })
-public final class WaybillDAO implements CrudDAO<Waybill> {
+@SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
+public final class WaybillArticleDAO implements CrudDAO<WaybillArticle> {
 
-    private static final @NotNull String SQL_SELECT_BY_ID = "SELECT * FROM waybill WHERE waybill_id = ?";
+    private static final @NotNull String SQL_SELECT_BY_ID =
+            "SELECT * FROM waybill_article WHERE waybill_article_id = ?";
 
-    private static final @NotNull String SQL_SELECT_ALL = "SELECT * FROM waybill";
+    private static final @NotNull String SQL_SELECT_ALL = "SELECT * FROM waybill_article";
 
     private static final @NotNull String SQL_UPDATE =
-            "UPDATE waybill SET waybill_date = ?, org_sender_id = ? WHERE waybill_id = ?";
+                    "UPDATE waybill_article SET price = ?, amount = ?, waybill_id = ?, product_id = ? " +
+                     "WHERE waybill_article_id = ?";
 
     private static final @NotNull String SQL_INSERT =
-            "INSERT INTO waybill(waybill_date, org_sender_id) VALUES (?, ?)";
+            "INSERT INTO waybill_article(price, amount, waybill_id, product_id) VALUES (?, ?, ?, ?)";
 
-    private static final @NotNull String SQL_DELETE_BY_ID = "DELETE FROM waybill WHERE waybill_id = ?";
+    private static final @NotNull String SQL_DELETE_BY_ID =
+            "DELETE FROM waybill_article WHERE waybill_article_id = ?";
 
     @SuppressWarnings("SqlWithoutWhere")
-    private static final @NotNull String SQL_DELETE_ALL = "DELETE FROM waybill";
+    private static final @NotNull String SQL_DELETE_ALL = "DELETE FROM waybill_article";
 
 
     private final @NotNull Connection connection;
 
     @Inject
-    public WaybillDAO(@NotNull Connection connection) {
+    public WaybillArticleDAO(@NotNull Connection connection) {
         this.connection = connection;
     }
 
     @Override
-    public @NotNull Waybill get(int id) {
+    public @NotNull WaybillArticle get(int id) {
 
         try (PreparedStatement selectStatement = connection.prepareStatement(SQL_SELECT_BY_ID)) {
 
@@ -44,42 +47,44 @@ public final class WaybillDAO implements CrudDAO<Waybill> {
             try (ResultSet resultSet = selectStatement.executeQuery()) {
 
                 if (resultSet.next()) {
-                    return getWaybillFromResultSet(resultSet);
+                    return getWaybillArticleFromResultSet(resultSet);
                 }
             }
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        return new Waybill();
+        return new WaybillArticle();
     }
 
     @Override
-    public @NotNull List<@NotNull Waybill> all() {
-        List<Waybill> resultWaybills = new ArrayList<>();
+    public @NotNull List<@NotNull WaybillArticle> all() {
+        List<WaybillArticle> resultWaybillArticles = new ArrayList<>();
 
         try (Statement selectAllStatement = connection.createStatement()) {
 
             try (ResultSet resultSet = selectAllStatement.executeQuery(SQL_SELECT_ALL)) {
 
                 while (resultSet.next()) {
-                    resultWaybills.add(getWaybillFromResultSet(resultSet));
+                    resultWaybillArticles.add(getWaybillArticleFromResultSet(resultSet));
                 }
             }
         } catch (SQLException e) {
             e.printStackTrace();
         }
 
-        return resultWaybills;
+        return resultWaybillArticles;
     }
 
     @Override
-    public int update(@NotNull Waybill entity) {
+    public int update(@NotNull WaybillArticle entity) {
 
         try (PreparedStatement updateStatement = connection.prepareStatement(SQL_UPDATE)) {
 
-            updateStatement.setDate(1, entity.waybillDate());
-            updateStatement.setInt(2, entity.orgSenderId());
+            updateStatement.setLong(1, entity.price());
+            updateStatement.setInt(2, entity.amount());
             updateStatement.setInt(3, entity.waybillId());
+            updateStatement.setInt(4, entity.productId());
+            updateStatement.setInt(5, entity.waybillArticleId());
 
             return updateStatement.executeUpdate();
 
@@ -91,12 +96,14 @@ public final class WaybillDAO implements CrudDAO<Waybill> {
     }
 
     @Override
-    public void save(@NotNull Waybill entity) {
+    public void save(@NotNull WaybillArticle entity) {
 
         try (PreparedStatement insertStatement = connection.prepareStatement(SQL_INSERT))  {
 
-            insertStatement.setDate(1, entity.waybillDate());
-            insertStatement.setInt(2, entity.orgSenderId());
+            insertStatement.setLong(1, entity.price());
+            insertStatement.setInt(2, entity.amount());
+            insertStatement.setInt(3, entity.waybillId());
+            insertStatement.setInt(4, entity.productId());
 
             insertStatement.executeUpdate();
 
@@ -129,12 +136,14 @@ public final class WaybillDAO implements CrudDAO<Waybill> {
         }
     }
 
-    private @NotNull Waybill getWaybillFromResultSet(@NotNull ResultSet resultSet)
+    private @NotNull WaybillArticle getWaybillArticleFromResultSet(@NotNull ResultSet resultSet)
             throws SQLException {
-        return new Waybill(
+        return new WaybillArticle(
+                resultSet.getInt("waybill_article_id"),
+                resultSet.getLong("price"),
+                resultSet.getInt("amount"),
                 resultSet.getInt("waybill_id"),
-                resultSet.getDate("waybill_date"),
-                resultSet.getInt("org_sender_id")
+                resultSet.getInt("product_id")
         );
     }
 }
