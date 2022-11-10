@@ -73,10 +73,10 @@ public final class WaybillDAOTest {
     @Test
     @DisplayName("Should get list of all Waybill instances")
     void shouldGetAllWaybills() {
-
+        System.out.println(ALL_WAYBILLS);
         List<@NotNull Waybill> waybills = waybillDAO.all();
-
-        MatcherAssert.assertThat(ALL_WAYBILLS, Matchers.containsInAnyOrder(waybills));
+        System.out.println(waybills);
+        MatcherAssert.assertThat(ALL_WAYBILLS, Matchers.containsInAnyOrder(waybills.toArray()));
     }
 
     @Test

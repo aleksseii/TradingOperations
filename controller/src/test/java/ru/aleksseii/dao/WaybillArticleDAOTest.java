@@ -39,10 +39,10 @@ public final class WaybillArticleDAOTest {
             new WaybillArticle(5, 300, 10, 3, 5),
             new WaybillArticle(6, 300, 3, 4, 5),
             new WaybillArticle(7, 450, 5, 5, 4),
-            new WaybillArticle(7, 900, 4, 5, EXISTING_PRODUCT_ID1),
-            new WaybillArticle(8, 120, 5, 6, EXISTING_PRODUCT_ID2),
-            new WaybillArticle(9, 4500, 4, 6, 3),
-            new WaybillArticle(10, 1200, 2, 6, 1)
+            new WaybillArticle(8, 900, 4, 5, EXISTING_PRODUCT_ID1),
+            new WaybillArticle(9, 120, 5, 6, EXISTING_PRODUCT_ID2),
+            new WaybillArticle(10, 4500, 4, 6, 3),
+            new WaybillArticle(11, 1200, 2, 6, 1)
     );
 
     private static final @NotNull Connection CONNECTION = ConnectionManager.getConnectionOrThrow();
@@ -79,7 +79,7 @@ public final class WaybillArticleDAOTest {
 
         List<@NotNull WaybillArticle> waybillArticles = waybillArticleDAO.all();
 
-        MatcherAssert.assertThat(ALL_WAYBILL_ARTICLES, Matchers.containsInAnyOrder(waybillArticles));
+        MatcherAssert.assertThat(ALL_WAYBILL_ARTICLES, Matchers.containsInAnyOrder(waybillArticles.toArray()));
     }
 
     @Test
