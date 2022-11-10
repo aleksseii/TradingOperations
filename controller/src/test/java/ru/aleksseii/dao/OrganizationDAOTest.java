@@ -17,7 +17,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class OrganizationDAOTest {
+public final class OrganizationDAOTest {
 
     private static final int EXISTING_ID1 = 1;
     private static final int EXISTING_ID2 = 2;
@@ -102,7 +102,7 @@ class OrganizationDAOTest {
     @DisplayName("Should update Organization instance")
     void shouldUpdateOrganization() {
 
-        int id = 2;
+        int id = EXISTING_ID2;
         long inn = 999;
         Organization expectedOrg = new Organization(id, inn, "new org_2", "new acc_2");
 
@@ -112,7 +112,7 @@ class OrganizationDAOTest {
 
         assertEquals(sizeBefore, sizeAfter);
         assertEquals(expectedOrg, organizationDAO.getByInn(inn));
-        assertEquals(expectedOrg, organizationDAO.get(2));
+        assertEquals(expectedOrg, organizationDAO.get(id));
     }
 
     @Test

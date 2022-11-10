@@ -30,7 +30,6 @@ public final class WaybillDAO implements CrudDAO<Waybill> {
     private static final @NotNull String SQL_DELETE_ALL = "DELETE FROM waybill";
 
 
-
     private final @NotNull Connection connection;
 
     @Inject
