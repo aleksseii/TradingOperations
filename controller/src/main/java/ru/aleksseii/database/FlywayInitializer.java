@@ -11,7 +11,7 @@ public final class FlywayInitializer {
 
         final Flyway flyway = Flyway.configure()
                 .dataSource(CREDENTIALS.getUrl(), CREDENTIALS.getUsername(), CREDENTIALS.getPassword())
-                .locations("db")
+                .locations("db/migrations")
                 .cleanDisabled(false)
                 .load();
         flyway.clean();

@@ -181,7 +181,7 @@ public final class OrganizationDAO implements CrudDAO<Organization> {
         }
     }
 
-    private static @NotNull Organization getOrganizationFromResultSet(@NotNull ResultSet resultSet)
+    public static @NotNull Organization getOrganizationFromResultSet(@NotNull ResultSet resultSet)
             throws SQLException {
 
         return new Organization(
