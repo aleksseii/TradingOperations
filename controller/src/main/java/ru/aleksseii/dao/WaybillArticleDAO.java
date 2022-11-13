@@ -2,6 +2,7 @@ package ru.aleksseii.dao;
 
 import org.jetbrains.annotations.NotNull;
 import ru.aleksseii.model.WaybillArticle;
+import ru.aleksseii.report.ObjectMapping;
 
 import javax.inject.Inject;
 import java.sql.*;
@@ -47,7 +48,7 @@ public final class WaybillArticleDAO implements CrudDAO<WaybillArticle> {
             try (ResultSet resultSet = selectStatement.executeQuery()) {
 
                 if (resultSet.next()) {
-                    return getWaybillArticleFromResultSet(resultSet);
+                    return ObjectMapping.getWaybillArticleFromResultSet(resultSet);
                 }
             }
         } catch (SQLException e) {
@@ -65,7 +66,7 @@ public final class WaybillArticleDAO implements CrudDAO<WaybillArticle> {
             try (ResultSet resultSet = selectAllStatement.executeQuery(SQL_SELECT_ALL)) {
 
                 while (resultSet.next()) {
-                    resultWaybillArticles.add(getWaybillArticleFromResultSet(resultSet));
+                    resultWaybillArticles.add(ObjectMapping.getWaybillArticleFromResultSet(resultSet));
                 }
             }
         } catch (SQLException e) {
@@ -134,16 +135,5 @@ public final class WaybillArticleDAO implements CrudDAO<WaybillArticle> {
         } catch (SQLException e) {
             e.printStackTrace();
         }
-    }
-
-    private @NotNull WaybillArticle getWaybillArticleFromResultSet(@NotNull ResultSet resultSet)
-            throws SQLException {
-        return new WaybillArticle(
-                resultSet.getInt("waybill_article_id"),
-                resultSet.getLong("price"),
-                resultSet.getInt("amount"),
-                resultSet.getInt("waybill_id"),
-                resultSet.getInt("product_id")
-        );
     }
 }

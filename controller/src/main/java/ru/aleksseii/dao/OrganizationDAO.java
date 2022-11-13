@@ -3,6 +3,7 @@ package ru.aleksseii.dao;
 import com.google.inject.Inject;
 import org.jetbrains.annotations.NotNull;
 import ru.aleksseii.model.Organization;
+import ru.aleksseii.report.ObjectMapping;
 
 import java.sql.*;
 import java.util.ArrayList;
@@ -51,7 +52,7 @@ public final class OrganizationDAO implements CrudDAO<Organization> {
 
             try (ResultSet resultSet = selectStatement.executeQuery()) {
                 if (resultSet.next()) {
-                    return getOrganizationFromResultSet(resultSet);
+                    return ObjectMapping.getOrganizationFromResultSet(resultSet);
                 }
             }
 
@@ -72,7 +73,7 @@ public final class OrganizationDAO implements CrudDAO<Organization> {
 
             try (ResultSet resultSet = selectByNameStatement.executeQuery()) {
                 while (resultSet.next()) {
-                    resultOrganizations.add(getOrganizationFromResultSet(resultSet));
+                    resultOrganizations.add(ObjectMapping.getOrganizationFromResultSet(resultSet));
                 }
             }
 
@@ -91,7 +92,7 @@ public final class OrganizationDAO implements CrudDAO<Organization> {
 
             try (ResultSet resultSet = selectByInnStatement.executeQuery()) {
                 if (resultSet.next()) {
-                    return getOrganizationFromResultSet(resultSet);
+                    return ObjectMapping.getOrganizationFromResultSet(resultSet);
                 }
             }
 
@@ -111,7 +112,7 @@ public final class OrganizationDAO implements CrudDAO<Organization> {
 
             try (ResultSet resultSet = selectAllStatement.executeQuery(SQL_SELECT_ALL)) {
                 while (resultSet.next()) {
-                    resultOrganizations.add(getOrganizationFromResultSet(resultSet));
+                    resultOrganizations.add(ObjectMapping.getOrganizationFromResultSet(resultSet));
                 }
             }
         } catch (SQLException e) {
@@ -179,16 +180,5 @@ public final class OrganizationDAO implements CrudDAO<Organization> {
         } catch (SQLException e) {
             e.printStackTrace();
         }
-    }
-
-    public static @NotNull Organization getOrganizationFromResultSet(@NotNull ResultSet resultSet)
-            throws SQLException {
-
-        return new Organization(
-                resultSet.getInt("org_id"),
-                resultSet.getLong("inn"),
-                resultSet.getString("name"),
-                resultSet.getString("bank_account")
-        );
     }
 }

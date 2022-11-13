@@ -2,8 +2,6 @@ package ru.aleksseii.report;
 
 import com.google.inject.Inject;
 import org.jetbrains.annotations.NotNull;
-import ru.aleksseii.dao.OrganizationDAO;
-import ru.aleksseii.dao.ProductDAO;
 import ru.aleksseii.model.Organization;
 import ru.aleksseii.model.Product;
 
@@ -44,7 +42,7 @@ public final class ReportManagerImpl implements ReportManager {
             ResultSet resultSet = selectStatement.executeQuery(sqlSelectQuery);
 
             while (resultSet.next()) {
-                result.add(OrganizationDAO.getOrganizationFromResultSet(resultSet));
+                result.add(ObjectMapping.getOrganizationFromResultSet(resultSet));
             }
 
         } catch (SQLException | IOException e) {
@@ -76,7 +74,7 @@ public final class ReportManagerImpl implements ReportManager {
 
             while (resultSet.next()) {
 
-                Organization organization = OrganizationDAO.getOrganizationFromResultSet(resultSet);
+                Organization organization = ObjectMapping.getOrganizationFromResultSet(resultSet);
                 if (result.contains(organization)) {
                     continue;
                 }
@@ -130,7 +128,7 @@ public final class ReportManagerImpl implements ReportManager {
                 while (resultSet.next()) {
 
                     Date date = resultSet.getDate("waybill_date");
-                    Product product = ProductDAO.getProductFromResultSet(resultSet);
+                    Product product = ObjectMapping.getProductFromResultSet(resultSet);
 
                     if (!(totalAmount.containsKey(product) || totalProceeds.containsKey(product))) {
                         totalAmount.put(product, 0);
@@ -182,6 +180,12 @@ public final class ReportManagerImpl implements ReportManager {
     }
 
 
+    /**
+     * Рассчитать среднюю цену по каждому товару за период
+     * @param start start of the period
+     * @param end end of the period
+     * @return Map with Product as key and its average price as value
+     */
     @Override
     public @NotNull Map<@NotNull Product, @NotNull Double> getProductAveragePriceForPeriod(
             @NotNull Date start,
@@ -200,7 +204,7 @@ public final class ReportManagerImpl implements ReportManager {
 
                 while (resultSet.next()) {
 
-                    Product product = ProductDAO.getProductFromResultSet(resultSet);
+                    Product product = ObjectMapping.getProductFromResultSet(resultSet);
                     double avgPrice = resultSet.getDouble("avg_price");
 
                     result.put(product, avgPrice);

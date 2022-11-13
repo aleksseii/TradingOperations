@@ -3,6 +3,7 @@ package ru.aleksseii.dao;
 import com.google.inject.Inject;
 import org.jetbrains.annotations.NotNull;
 import ru.aleksseii.model.Waybill;
+import ru.aleksseii.report.ObjectMapping;
 
 import java.sql.*;
 import java.util.ArrayList;
@@ -44,7 +45,7 @@ public final class WaybillDAO implements CrudDAO<Waybill> {
             try (ResultSet resultSet = selectStatement.executeQuery()) {
 
                 if (resultSet.next()) {
-                    return getWaybillFromResultSet(resultSet);
+                    return ObjectMapping.getWaybillFromResultSet(resultSet);
                 }
             }
         } catch (SQLException e) {
@@ -62,7 +63,7 @@ public final class WaybillDAO implements CrudDAO<Waybill> {
             try (ResultSet resultSet = selectAllStatement.executeQuery(SQL_SELECT_ALL)) {
 
                 while (resultSet.next()) {
-                    resultWaybills.add(getWaybillFromResultSet(resultSet));
+                    resultWaybills.add(ObjectMapping.getWaybillFromResultSet(resultSet));
                 }
             }
         } catch (SQLException e) {
@@ -127,14 +128,5 @@ public final class WaybillDAO implements CrudDAO<Waybill> {
         } catch (SQLException e) {
             e.printStackTrace();
         }
-    }
-
-    private @NotNull Waybill getWaybillFromResultSet(@NotNull ResultSet resultSet)
-            throws SQLException {
-        return new Waybill(
-                resultSet.getInt("waybill_id"),
-                resultSet.getDate("waybill_date"),
-                resultSet.getInt("org_sender_id")
-        );
     }
 }

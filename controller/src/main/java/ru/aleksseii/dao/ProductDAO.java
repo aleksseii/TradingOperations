@@ -3,6 +3,7 @@ package ru.aleksseii.dao;
 import com.google.inject.Inject;
 import org.jetbrains.annotations.NotNull;
 import ru.aleksseii.model.Product;
+import ru.aleksseii.report.ObjectMapping;
 
 import java.sql.*;
 import java.util.ArrayList;
@@ -50,7 +51,7 @@ public final class ProductDAO implements CrudDAO<Product> {
             try (ResultSet resultSet = selectStatement.executeQuery()) {
 
                 if (resultSet.next()) {
-                    return getProductFromResultSet(resultSet);
+                    return ObjectMapping.getProductFromResultSet(resultSet);
                 }
             }
         } catch (SQLException e) {
@@ -69,7 +70,7 @@ public final class ProductDAO implements CrudDAO<Product> {
 
             try (ResultSet resultSet = selectByNameStatement.executeQuery()) {
                 while (resultSet.next()) {
-                    resultProducts.add(getProductFromResultSet(resultSet));
+                    resultProducts.add(ObjectMapping.getProductFromResultSet(resultSet));
                 }
             }
 
@@ -90,7 +91,7 @@ public final class ProductDAO implements CrudDAO<Product> {
             try (ResultSet resultSet = selectAllStatement.executeQuery(SQL_SELECT_ALL)) {
 
                 while (resultSet.next()) {
-                    resultProducts.add(getProductFromResultSet(resultSet));
+                    resultProducts.add(ObjectMapping.getProductFromResultSet(resultSet));
                 }
             }
         } catch (SQLException e) {
@@ -155,15 +156,5 @@ public final class ProductDAO implements CrudDAO<Product> {
         } catch (SQLException e) {
             e.printStackTrace();
         }
-    }
-
-    public static @NotNull Product getProductFromResultSet(@NotNull ResultSet resultSet)
-            throws SQLException {
-
-        return new Product(
-                resultSet.getInt("product_id"),
-                resultSet.getString("name"),
-                resultSet.getString("internal_code")
-        );
     }
 }
