@@ -18,10 +18,9 @@ public final class ReportManagerImpl implements ReportManager {
 
     public static final String BASE_PATH = "controller/src/main/resources/db/select_queries/";
     private static final @NotNull String REPORT_1_SQL_FILE_NAME = "report1_top_10_org_senders.sql";
-
     private static final @NotNull String REPORT_2_SQL_FILE_NAME = "report2_orgs_and_amount_of_each_sent_product.sql";
     public static final String REPORT_3_SQL_FILE_NAME = "report3_product_amount_proceeds_per_day.sql";
-
+    public static final String REPORT_4_SQL_FILE_NAME = "report4_product_avg_prices.sql";
 
     private final @NotNull Connection connection;
 
@@ -55,7 +54,6 @@ public final class ReportManagerImpl implements ReportManager {
         return result;
     }
 
-//    public @NotNull Map<@NotNull Date, @NotNull List<@NotNull Map<@NotNull Product, @NotNull Map<@NotNull String, @NotNull Integer>>>>
     /**
      * Выбрать поставщиков с количеством поставленного товара выше указанного значения
      * (товар и его количество должны допускать множественное указание). <br>
@@ -100,6 +98,16 @@ public final class ReportManagerImpl implements ReportManager {
         return result;
     }
 
+    /**
+     * За каждый день для каждого товара рассчитать количество и сумму<br>
+     * полученного товара в указанном периоде, посчитать итоги за период
+     * @param start start of the period
+     * @param end end of the period
+     * @return Map with Date of the waybill as a key and Map of products with its data as a value.<br>
+     * In List<Long> at [0] index placed amount per day,<br>
+     * at [1] index placed proceeds per day
+     * for the corresponding product and for the corresponding date
+     */
     @Override
     public @NotNull Map<@NotNull Date, @NotNull Map<@NotNull Product, @NotNull List<@NotNull Long>>> getProductAmountAndSumForPeriod(
             @NotNull Date start,
@@ -166,6 +174,38 @@ public final class ReportManagerImpl implements ReportManager {
                 System.out.println();
             }
 
+        } catch (SQLException | IOException e) {
+            e.printStackTrace();
+        }
+
+        return result;
+    }
+
+
+    @Override
+    public @NotNull Map<@NotNull Product, @NotNull Double> getProductAveragePriceForPeriod(
+            @NotNull Date start,
+            @NotNull Date end) {
+
+        Map<Product, Double> result = new TreeMap<>(Comparator.comparingInt(Product::productId));
+
+        try (PreparedStatement selectStatement = connection.prepareStatement(
+                readSQLFromFile(BASE_PATH + REPORT_4_SQL_FILE_NAME)
+        )) {
+
+            selectStatement.setDate(1, start);
+            selectStatement.setDate(2, end);
+
+            try (ResultSet resultSet = selectStatement.executeQuery()) {
+
+                while (resultSet.next()) {
+
+                    Product product = ProductDAO.getProductFromResultSet(resultSet);
+                    double avgPrice = resultSet.getDouble("avg_price");
+
+                    result.put(product, avgPrice);
+                }
+            }
         } catch (SQLException | IOException e) {
             e.printStackTrace();
         }
