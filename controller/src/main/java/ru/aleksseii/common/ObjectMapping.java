@@ -1,4 +1,4 @@
-package ru.aleksseii.report;
+package ru.aleksseii.common;
 
 import org.jetbrains.annotations.NotNull;
 import ru.aleksseii.model.Organization;

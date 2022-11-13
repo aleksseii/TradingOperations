@@ -2,7 +2,7 @@ package ru.aleksseii.dao;
 
 import org.jetbrains.annotations.NotNull;
 import ru.aleksseii.model.WaybillArticle;
-import ru.aleksseii.report.ObjectMapping;
+import ru.aleksseii.common.ObjectMapping;
 
 import javax.inject.Inject;
 import java.sql.*;

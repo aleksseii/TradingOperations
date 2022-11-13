@@ -3,6 +3,7 @@ package ru.aleksseii.report;
 import com.google.inject.Inject;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import ru.aleksseii.common.ObjectMapping;
 import ru.aleksseii.model.Organization;
 import ru.aleksseii.model.Product;
 

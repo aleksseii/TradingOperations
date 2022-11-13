@@ -3,7 +3,7 @@ package ru.aleksseii.dao;
 import com.google.inject.Inject;
 import org.jetbrains.annotations.NotNull;
 import ru.aleksseii.model.Organization;
-import ru.aleksseii.report.ObjectMapping;
+import ru.aleksseii.common.ObjectMapping;
 
 import java.sql.*;
 import java.util.ArrayList;

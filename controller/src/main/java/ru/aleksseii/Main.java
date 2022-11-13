@@ -2,6 +2,7 @@ package ru.aleksseii;
 
 import com.google.inject.Guice;
 import com.google.inject.Injector;
+import ru.aleksseii.common.TradingOperationsModule;
 import ru.aleksseii.database.ConnectionManager;
 import ru.aleksseii.database.FlywayInitializer;
 
