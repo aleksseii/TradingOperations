@@ -16,12 +16,14 @@ import java.util.*;
 
 public final class ReportManagerImpl implements ReportManager {
 
-    public static final String BASE_PATH = "controller/src/main/resources/db/select_queries/";
+    private static final @NotNull String BASE_PATH = Objects.requireNonNull(
+            ReportManagerImpl.class.getClassLoader().getResource("db/select_queries/")
+    ).getPath().substring(1); // to remove '/'-symbol from the beginning
     private static final @NotNull String REPORT_1_SQL_FILE_NAME = "report1_top_10_org_senders.sql";
     private static final @NotNull String REPORT_2_SQL_FILE_NAME = "report2_orgs_and_amount_of_each_sent_product.sql";
-    public static final String REPORT_3_SQL_FILE_NAME = "report3_product_amount_proceeds_per_day.sql";
-    public static final String REPORT_4_SQL_FILE_NAME = "report4_product_avg_prices.sql";
-    public static final String REPORT_5_SQL_FILE_NAME = "report5_products_by_org.sql";
+    private static final @NotNull String REPORT_3_SQL_FILE_NAME = "report3_product_amount_proceeds_per_day.sql";
+    private static final @NotNull String REPORT_4_SQL_FILE_NAME = "report4_product_avg_prices.sql";
+    private static final @NotNull String REPORT_5_SQL_FILE_NAME = "report5_products_by_org.sql";
 
     private final @NotNull Connection connection;
 
@@ -167,10 +169,10 @@ public final class ReportManagerImpl implements ReportManager {
                 }
 
                 // outputting totals
-                System.out.println("\nTotal Amount:");
+                System.out.println("\r\nTotal Amount:");
                 printMapContent(totalAmount);
 
-                System.out.println("\nTotal Proceeds:");
+                System.out.println("\r\nTotal Proceeds:");
                 printMapContent(totalProceeds);
                 System.out.println();
             }
@@ -290,7 +292,7 @@ public final class ReportManagerImpl implements ReportManager {
         return new Product(id, name, internalCode);
     }
 
-    private static <K, V> void printMapContent(Map<K, V> map) {
+    private static <K, V> void printMapContent(@NotNull Map<K, V> map) {
 
         for (Map.Entry<K, V> entry : map.entrySet()) {
             System.out.println("\t" + entry.getKey() + " " + "-".repeat(20) + " " + entry.getValue());

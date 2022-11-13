@@ -12,4 +12,5 @@ SELECT o.org_id, o.inn, o.name AS org_name, o.bank_account,
        LEFT JOIN product         AS  p  USING(product_id)
  WHERE w.waybill_date BETWEEN ? AND ?
     OR w.waybill_id IS NULL
- GROUP BY o.org_id, p.product_id;
+ GROUP BY o.org_id, p.product_id
+ ORDER BY o.org_id, p.product_id;
