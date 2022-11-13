@@ -157,7 +157,7 @@ public final class ProductDAO implements CrudDAO<Product> {
         }
     }
 
-    private static @NotNull Product getProductFromResultSet(@NotNull ResultSet resultSet)
+    public static @NotNull Product getProductFromResultSet(@NotNull ResultSet resultSet)
             throws SQLException {
 
         return new Product(

@@ -3,15 +3,15 @@ package ru.aleksseii.report;
 import com.google.inject.Inject;
 import org.jetbrains.annotations.NotNull;
 import ru.aleksseii.dao.OrganizationDAO;
+import ru.aleksseii.dao.ProductDAO;
 import ru.aleksseii.model.Organization;
+import ru.aleksseii.model.Product;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
+import java.sql.Date;
+import java.sql.*;
 import java.util.*;
 
 public final class ReportManagerImpl implements ReportManager {
@@ -20,6 +20,7 @@ public final class ReportManagerImpl implements ReportManager {
     private static final @NotNull String REPORT_1_SQL_FILE_NAME = "report1_top_10_org_senders.sql";
 
     private static final @NotNull String REPORT_2_SQL_FILE_NAME = "report2_orgs_and_amount_of_each_sent_product.sql";
+    public static final String REPORT_3_SQL_FILE_NAME = "report3_product_amount_proceeds_per_day.sql";
 
 
     private final @NotNull Connection connection;
@@ -54,6 +55,7 @@ public final class ReportManagerImpl implements ReportManager {
         return result;
     }
 
+//    public @NotNull Map<@NotNull Date, @NotNull List<@NotNull Map<@NotNull Product, @NotNull Map<@NotNull String, @NotNull Integer>>>>
     /**
      * Выбрать поставщиков с количеством поставленного товара выше указанного значения
      * (товар и его количество должны допускать множественное указание). <br>
@@ -76,13 +78,16 @@ public final class ReportManagerImpl implements ReportManager {
 
             while (resultSet.next()) {
 
+                Organization organization = OrganizationDAO.getOrganizationFromResultSet(resultSet);
+                if (result.contains(organization)) {
+                    continue;
+                }
+
                 int productId = resultSet.getInt("product_id");
                 int totalAmount = resultSet.getInt("total_amount");
 
                 if (productIdToAmount.containsKey(productId)) {
                     if (totalAmount > productIdToAmount.get(productId)) {
-
-                        Organization organization = OrganizationDAO.getOrganizationFromResultSet(resultSet);
                         result.add(organization);
                     }
                 }
@@ -93,6 +98,86 @@ public final class ReportManagerImpl implements ReportManager {
         }
 
         return result;
+    }
+
+    @Override
+    public @NotNull Map<@NotNull Date, @NotNull Map<@NotNull Product, @NotNull List<@NotNull Long>>> getProductAmountAndSumForPeriod(
+            @NotNull Date start,
+            @NotNull Date end) {
+
+        Map<Date, Map<Product, List<Long>>> result = new TreeMap<>();
+
+        try (PreparedStatement selectStatement = connection.prepareStatement(
+                readSQLFromFile(BASE_PATH + REPORT_3_SQL_FILE_NAME)
+        )) {
+
+          selectStatement.setDate(1, start);
+          selectStatement.setDate(2, end);
+
+            try (ResultSet resultSet = selectStatement.executeQuery()) {
+
+                Map<Product, Integer> totalAmount = new TreeMap<>(Comparator.comparingInt(Product::productId));
+                Map<Product, Long> totalProceeds = new TreeMap<>(Comparator.comparingInt(Product::productId));
+
+                while (resultSet.next()) {
+
+                    Date date = resultSet.getDate("waybill_date");
+                    Product product = ProductDAO.getProductFromResultSet(resultSet);
+
+                    if (!(totalAmount.containsKey(product) || totalProceeds.containsKey(product))) {
+                        totalAmount.put(product, 0);
+                        totalProceeds.put(product, 0L);
+                    }
+
+                    if (!result.containsKey(date)) {
+                        result.put(date, new TreeMap<>(Comparator.comparingInt(Product::productId)));
+                    }
+
+                    Map<Product, List<Long>> productToList = result.get(date);
+                    if (!productToList.containsKey(product)) {
+                        List<Long> productData = new ArrayList<>(2);
+                        productData.add(0L);
+                        productData.add(0L);
+                        productToList.put(product, productData);
+                    }
+
+                    // List with 2 elements: [0] - amount per day, [1] - proceeds per day
+                    List<Long> productData = productToList.get(product);
+                    int amount = resultSet.getInt("amount_per_day");
+                    long proceeds = resultSet.getLong("proceeds_per_day");
+
+                    totalAmount.put(product, totalAmount.get(product) + amount);
+                    totalProceeds.put(product, totalProceeds.get(product) + proceeds);
+
+                    productData.set(0, productData.get(0) + amount);
+                    productData.set(1, productData.get(1) + proceeds);
+
+                    productToList.put(product, productData);
+
+                    result.put(date, productToList);
+                }
+
+                // outputting totals
+                System.out.println("\nTotal Amount:");
+                printMapContent(totalAmount);
+
+                System.out.println("\nTotal Proceeds:");
+                printMapContent(totalProceeds);
+                System.out.println();
+            }
+
+        } catch (SQLException | IOException e) {
+            e.printStackTrace();
+        }
+
+        return result;
+    }
+
+    private static <K, V> void printMapContent(Map<K, V> map) {
+
+        for (Map.Entry<K, V> entry : map.entrySet()) {
+            System.out.println("\t" + entry.getKey() + " " + "-".repeat(20) + " " + entry.getValue());
+        }
     }
 
     private static @NotNull String readSQLFromFile(@NotNull String filePath) throws IOException {
