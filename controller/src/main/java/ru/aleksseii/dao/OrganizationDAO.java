@@ -176,7 +176,6 @@ public final class OrganizationDAO implements CrudDAO<Organization> {
 
         try (Statement deleteAllStatement = connection.createStatement()) {
             deleteAllStatement.executeQuery(SQL_DELETE_ALL);
-
         } catch (SQLException e) {
             e.printStackTrace();
         }
