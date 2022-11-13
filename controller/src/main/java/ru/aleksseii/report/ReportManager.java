@@ -23,4 +23,8 @@ public interface ReportManager {
     @NotNull Map<@NotNull Product, @NotNull Double> getProductAveragePriceForPeriod(
             @NotNull Date start,
             @NotNull Date end);
+
+    @NotNull Map<@NotNull Organization, @NotNull List<@NotNull Product>> getProductsSentByOrgForPeriod(
+            @NotNull Date start,
+            @NotNull Date end);
 }

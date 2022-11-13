@@ -2,6 +2,7 @@ package ru.aleksseii.report;
 
 import com.google.inject.Inject;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import ru.aleksseii.model.Organization;
 import ru.aleksseii.model.Product;
 
@@ -19,6 +20,7 @@ public final class ReportManagerImpl implements ReportManager {
     private static final @NotNull String REPORT_2_SQL_FILE_NAME = "report2_orgs_and_amount_of_each_sent_product.sql";
     public static final String REPORT_3_SQL_FILE_NAME = "report3_product_amount_proceeds_per_day.sql";
     public static final String REPORT_4_SQL_FILE_NAME = "report4_product_avg_prices.sql";
+    public static final String REPORT_5_SQL_FILE_NAME = "report5_products_by_org.sql";
 
     private final @NotNull Connection connection;
 
@@ -215,6 +217,76 @@ public final class ReportManagerImpl implements ReportManager {
         }
 
         return result;
+    }
+
+    /**
+     * Вывести список товаров, поставленных организациями за период.<br>
+     * Если организация товары не поставляла, то она все равно должна быть отражена в списке.
+     * @param start start of the period
+     * @param end end of the period
+     * @return Map of Organizations as key and List of Products sent by the corresponding organization as value
+     */
+    @Override
+    public @NotNull Map<@NotNull Organization, @NotNull List<@NotNull Product>> getProductsSentByOrgForPeriod(
+            @NotNull Date start,
+            @NotNull Date end) {
+
+        Map<Organization, List<Product>> result = new TreeMap<>(Comparator.comparingInt(Organization::orgId));
+
+        try (PreparedStatement selectStatement = connection.prepareStatement(
+                readSQLFromFile(BASE_PATH + REPORT_5_SQL_FILE_NAME)
+        )) {
+
+            selectStatement.setDate(1, start);
+            selectStatement.setDate(2, end);
+
+            try (ResultSet resultSet = selectStatement.executeQuery()) {
+
+                while (resultSet.next()) {
+
+                    Organization organization = getOrganizationFromResultSet(resultSet);
+                    Product product = getProductFromResultSet(resultSet);
+
+                    if (!result.containsKey(organization)) {
+                        result.put(organization, new ArrayList<>());
+                    }
+
+                    if (product != null) {
+                        List<Product> productList = result.get(organization);
+                        productList.add(product);
+                        result.put(organization, productList);
+                    }
+                }
+            }
+
+        } catch (SQLException | IOException e) {
+            e.printStackTrace();
+        }
+
+        return result;
+    }
+
+    private static @NotNull Organization getOrganizationFromResultSet(@NotNull ResultSet resultSet)
+            throws SQLException {
+        return new Organization(
+                resultSet.getInt("org_id"),
+                resultSet.getLong("inn"),
+                resultSet.getString("org_name"),
+                resultSet.getString("bank_account")
+        );
+    }
+
+    private static @Nullable Product getProductFromResultSet(@NotNull ResultSet resultSet)
+            throws SQLException {
+
+        int id = resultSet.getInt("product_id");
+        String name = resultSet.getString("product_name");
+        String internalCode = resultSet.getString("internal_code");
+        if (name == null || internalCode == null) {
+            return null;
+        }
+
+        return new Product(id, name, internalCode);
     }
 
     private static <K, V> void printMapContent(Map<K, V> map) {
