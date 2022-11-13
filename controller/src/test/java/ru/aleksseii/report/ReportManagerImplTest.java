@@ -8,6 +8,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import ru.aleksseii.common.TradingOperationsModule;
+import ru.aleksseii.dao.OrganizationDAO;
 import ru.aleksseii.database.ConnectionManager;
 import ru.aleksseii.database.FlywayInitializer;
 import ru.aleksseii.model.Organization;
@@ -27,6 +28,7 @@ public final class ReportManagerImplTest {
     private static final @NotNull Organization ORGANIZATION_1 = new Organization(1, 111L, "org_1", "acc_1");
     private static final @NotNull Organization ORGANIZATION_2 = new Organization(2, 222L, "org_1", "acc_2");
     private static final @NotNull Organization ORGANIZATION_3 = new Organization(3, 333L, "org_3", "acc_3");
+    private static final @NotNull Organization ORGANIZATION_4 = new Organization(4, 444L, "org_4", "acc_4");
 
     private static final @NotNull Product PRODUCT_1 = new Product(1, "product_1", "code_1");
     private static final @NotNull Product PRODUCT_3 = new Product(3, "product_3", "code_3");
@@ -57,7 +59,8 @@ public final class ReportManagerImplTest {
     private static final @NotNull Map<@NotNull Organization, @NotNull List<@NotNull Product>> ORG_TO_SENT_PRODUCTS_FOR_PERIOD = Map.of(
             ORGANIZATION_1, List.of(PRODUCT_5),
             ORGANIZATION_2, List.of(PRODUCT_1, PRODUCT_3, PRODUCT_4),
-            ORGANIZATION_3, List.of(PRODUCT_4, PRODUCT_5)
+            ORGANIZATION_3, List.of(PRODUCT_4, PRODUCT_5),
+            ORGANIZATION_4, List.of()
     );
 
     private static final @NotNull Map<@NotNull Date, @NotNull Map<@NotNull Product, @NotNull List<@NotNull Long>>> PRODUCT_AMOUNT_AND_SUM = Map.of(
@@ -133,10 +136,15 @@ public final class ReportManagerImplTest {
     @DisplayName("Should get products sent by organization for provided period")
     void shouldGetProductsSentByOrgForPeriod() {
 
+        OrganizationDAO orgDao = INJECTOR.getInstance(OrganizationDAO.class);
+        orgDao.save(ORGANIZATION_4);
+
         Map<@NotNull Organization, @NotNull List<@NotNull Product>> orgToProducts =
                 reportManager.getProductsSentByOrgForPeriod(START_DATE, END_DATE);
 
         assertEquals(ORG_TO_SENT_PRODUCTS_FOR_PERIOD, orgToProducts);
+
+        orgDao.delete(4);
     }
 
     @Test
