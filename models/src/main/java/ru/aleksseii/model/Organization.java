@@ -1,5 +1,6 @@
 package ru.aleksseii.model;
 
+import generated.tables.records.OrganizationRecord;
 import org.jetbrains.annotations.NotNull;
 
 
@@ -14,6 +15,15 @@ public record Organization(int orgId,
 
     public Organization() {
         this(0, 0, "", "");
+    }
+
+    public Organization(@NotNull OrganizationRecord record) {
+        this(
+                record.getOrgId(),
+                record.getInn(),
+                record.getName(),
+                record.getBankAccount()
+        );
     }
 
     public boolean isEmpty() {
