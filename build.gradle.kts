@@ -1,13 +1,12 @@
 plugins {
-    id("java")
+    java
+    `kotlin-dsl`
+    application
+    id("nu.studer.jooq") version "8.0" apply false
 }
 
 repositories {
     mavenCentral()
-}
-
-subprojects {
-    apply(plugin = "java")
 }
 
 allprojects {
@@ -15,13 +14,26 @@ allprojects {
     group = "ru.aleksseii"
     version = "1.0-SNAPSHOT"
 
+    apply {
+        plugin("java")
+        plugin("org.jetbrains.kotlin.jvm")
+        plugin("nu.studer.jooq")
+    }
+
     dependencies {
+
         testImplementation("org.junit.jupiter:junit-jupiter-api:5.9.1")
         testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.9.1")
 
         testImplementation("org.hamcrest:hamcrest-all:1.3")
 
         implementation("com.google.inject:guice:5.1.0")
+
+        implementation("com.zaxxer:HikariCP:5.0.1")
+
+        implementation("org.jooq:jooq:3.17.5")
+        implementation("org.jooq:jooq-codegen:3.17.5")
+        implementation("org.jooq:jooq-meta:3.17.5")
 
         implementation("org.postgresql:postgresql:42.5.0")
 
