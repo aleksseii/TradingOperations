@@ -1,93 +1,97 @@
 package ru.aleksseii.dao;
 
+import com.zaxxer.hikari.HikariDataSource;
+import generated.tables.records.WaybillArticleRecord;
 import org.jetbrains.annotations.NotNull;
+import org.jooq.DSLContext;
+import org.jooq.Result;
+import org.jooq.SQLDialect;
+import org.jooq.impl.DSL;
 import ru.aleksseii.model.WaybillArticle;
-import ru.aleksseii.common.ObjectMapping;
 
 import javax.inject.Inject;
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+
+import static generated.Tables.WAYBILL_ARTICLE;
 
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 public final class WaybillArticleDAO implements CrudDAO<WaybillArticle> {
 
-    private static final @NotNull String SQL_SELECT_BY_ID =
-            "SELECT * FROM waybill_article WHERE waybill_article_id = ?";
-
-    private static final @NotNull String SQL_SELECT_ALL = "SELECT * FROM waybill_article";
-
-    private static final @NotNull String SQL_UPDATE =
-                    "UPDATE waybill_article SET price = ?, amount = ?, waybill_id = ?, product_id = ? " +
-                     "WHERE waybill_article_id = ?";
-
-    private static final @NotNull String SQL_INSERT =
-            "INSERT INTO waybill_article(price, amount, waybill_id, product_id) VALUES (?, ?, ?, ?)";
-
-    private static final @NotNull String SQL_DELETE_BY_ID =
-            "DELETE FROM waybill_article WHERE waybill_article_id = ?";
-
-    @SuppressWarnings("SqlWithoutWhere")
-    private static final @NotNull String SQL_DELETE_ALL = "DELETE FROM waybill_article";
-
-
-    private final @NotNull Connection connection;
+    private final @NotNull HikariDataSource dataSource;
 
     @Inject
-    public WaybillArticleDAO(@NotNull Connection connection) {
-        this.connection = connection;
+    public WaybillArticleDAO(@NotNull HikariDataSource dataSource) {
+        this.dataSource = dataSource;
     }
 
     @Override
     public @NotNull WaybillArticle get(int id) {
 
-        try (PreparedStatement selectStatement = connection.prepareStatement(SQL_SELECT_BY_ID)) {
+        try (Connection connection = dataSource.getConnection()) {
 
-            selectStatement.setInt(1, id);
+            final DSLContext context = DSL.using(connection, SQLDialect.POSTGRES);
 
-            try (ResultSet resultSet = selectStatement.executeQuery()) {
+            final WaybillArticleRecord record = context.fetchOne(
+                    WAYBILL_ARTICLE,
+                    WAYBILL_ARTICLE.WAYBILL_ARTICLE_ID.equal(id)
+            );
 
-                if (resultSet.next()) {
-                    return ObjectMapping.getWaybillArticleFromResultSet(resultSet);
-                }
+            if (record != null) {
+                return new WaybillArticle(record);
             }
+
         } catch (SQLException e) {
             e.printStackTrace();
         }
+
         return new WaybillArticle();
     }
 
     @Override
     public @NotNull List<@NotNull WaybillArticle> all() {
-        List<WaybillArticle> resultWaybillArticles = new ArrayList<>();
 
-        try (Statement selectAllStatement = connection.createStatement()) {
+        try (Connection connection = dataSource.getConnection()) {
 
-            try (ResultSet resultSet = selectAllStatement.executeQuery(SQL_SELECT_ALL)) {
+            final DSLContext context = DSL.using(connection, SQLDialect.POSTGRES);
 
-                while (resultSet.next()) {
-                    resultWaybillArticles.add(ObjectMapping.getWaybillArticleFromResultSet(resultSet));
-                }
+            final Result<WaybillArticleRecord> waybillArticleRecords = context.fetch(WAYBILL_ARTICLE);
+            if (!waybillArticleRecords.isEmpty()) {
+                return waybillArticleRecords.stream().map(WaybillArticle::new).toList();
             }
+
         } catch (SQLException e) {
             e.printStackTrace();
         }
 
-        return resultWaybillArticles;
+        return new ArrayList<>();
     }
 
     @Override
     public int update(@NotNull WaybillArticle entity) {
 
-        try (PreparedStatement updateStatement = connection.prepareStatement(SQL_UPDATE)) {
+        try (Connection connection = dataSource.getConnection()) {
 
-            updateStatement.setLong(1, entity.price());
-            updateStatement.setInt(2, entity.amount());
-            updateStatement.setInt(3, entity.waybillId());
-            updateStatement.setInt(4, entity.productId());
-            updateStatement.setInt(5, entity.waybillArticleId());
+            final DSLContext context = DSL.using(connection, SQLDialect.POSTGRES);
 
-            return updateStatement.executeUpdate();
+            int waybillArticleId = entity.waybillArticleId();
+            final WaybillArticleRecord waybillArticleRecord = context.fetchOne(
+                    WAYBILL_ARTICLE,
+                    WAYBILL_ARTICLE.WAYBILL_ARTICLE_ID.equal(waybillArticleId)
+            );
+
+            if (waybillArticleRecord != null) {
+
+                waybillArticleRecord
+                        .setPrice(entity.price())
+                        .setAmount(entity.amount())
+                        .setWaybillId(entity.waybillId())
+                        .setProductId(entity.productId())
+                        .store();
+                return 1;
+            }
 
         } catch (SQLException e) {
             e.printStackTrace();
@@ -99,14 +103,17 @@ public final class WaybillArticleDAO implements CrudDAO<WaybillArticle> {
     @Override
     public void save(@NotNull WaybillArticle entity) {
 
-        try (PreparedStatement insertStatement = connection.prepareStatement(SQL_INSERT))  {
+        try (Connection connection = dataSource.getConnection()) {
 
-            insertStatement.setLong(1, entity.price());
-            insertStatement.setInt(2, entity.amount());
-            insertStatement.setInt(3, entity.waybillId());
-            insertStatement.setInt(4, entity.productId());
+            final DSLContext context = DSL.using(connection, SQLDialect.POSTGRES);
 
-            insertStatement.executeUpdate();
+            final WaybillArticleRecord waybillArticleRecord = context.newRecord(WAYBILL_ARTICLE);
+            waybillArticleRecord
+                    .setPrice(entity.price())
+                    .setAmount(entity.amount())
+                    .setWaybillId(entity.waybillId())
+                    .setProductId(entity.productId())
+                    .store();
 
         } catch (SQLException e) {
             e.printStackTrace();
@@ -116,10 +123,18 @@ public final class WaybillArticleDAO implements CrudDAO<WaybillArticle> {
     @Override
     public void delete(int id) {
 
-        try (PreparedStatement deleteStatement = connection.prepareStatement(SQL_DELETE_BY_ID)) {
+        try (Connection connection = dataSource.getConnection()) {
 
-            deleteStatement.setInt(1, id);
-            deleteStatement.executeUpdate();
+            final DSLContext context = DSL.using(connection, SQLDialect.POSTGRES);
+
+            final WaybillArticleRecord waybillArticleRecord = context.fetchOne(
+                    WAYBILL_ARTICLE,
+                    WAYBILL_ARTICLE.WAYBILL_ARTICLE_ID.equal(id)
+            );
+
+            if (waybillArticleRecord != null) {
+                waybillArticleRecord.delete();
+            }
 
         } catch (SQLException e) {
             e.printStackTrace();
@@ -129,8 +144,11 @@ public final class WaybillArticleDAO implements CrudDAO<WaybillArticle> {
     @Override
     public void deleteAll() {
 
-        try (Statement deleteAllStatement = connection.createStatement()) {
-            deleteAllStatement.executeUpdate(SQL_DELETE_ALL);
+        try (Connection connection = dataSource.getConnection()) {
+
+            final DSLContext context = DSL.using(connection, SQLDialect.POSTGRES);
+
+            context.deleteFrom(WAYBILL_ARTICLE).execute();
 
         } catch (SQLException e) {
             e.printStackTrace();
