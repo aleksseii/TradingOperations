@@ -1,88 +1,92 @@
 package ru.aleksseii.dao;
 
 import com.google.inject.Inject;
+import com.zaxxer.hikari.HikariDataSource;
+import generated.tables.records.WaybillRecord;
 import org.jetbrains.annotations.NotNull;
+import org.jooq.DSLContext;
+import org.jooq.Result;
+import org.jooq.SQLDialect;
+import org.jooq.impl.DSL;
 import ru.aleksseii.model.Waybill;
-import ru.aleksseii.common.ObjectMapping;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+
+import static generated.Tables.WAYBILL;
 
 @SuppressWarnings({ "SqlNoDataSourceInspection", "SqlResolve" })
 public final class WaybillDAO implements CrudDAO<Waybill> {
 
-    private static final @NotNull String SQL_SELECT_BY_ID = "SELECT * FROM waybill WHERE waybill_id = ?";
-
-    private static final @NotNull String SQL_SELECT_ALL = "SELECT * FROM waybill";
-
-    private static final @NotNull String SQL_UPDATE =
-            "UPDATE waybill SET waybill_date = ?, org_sender_id = ? WHERE waybill_id = ?";
-
-    private static final @NotNull String SQL_INSERT =
-            "INSERT INTO waybill(waybill_date, org_sender_id) VALUES (?, ?)";
-
-    private static final @NotNull String SQL_DELETE_BY_ID = "DELETE FROM waybill WHERE waybill_id = ?";
-
-    @SuppressWarnings("SqlWithoutWhere")
-    private static final @NotNull String SQL_DELETE_ALL = "DELETE FROM waybill";
-
-
-    private final @NotNull Connection connection;
+    private final @NotNull HikariDataSource dataSource;
 
     @Inject
-    public WaybillDAO(@NotNull Connection connection) {
-        this.connection = connection;
+    public WaybillDAO(@NotNull HikariDataSource dataSource) {
+        this.dataSource = dataSource;
     }
 
+    /**
+     * @param id id to get instance by
+     * @return instance if found by id, empty instance otherwise
+     */
     @Override
     public @NotNull Waybill get(int id) {
 
-        try (PreparedStatement selectStatement = connection.prepareStatement(SQL_SELECT_BY_ID)) {
+        try (Connection connection = dataSource.getConnection()) {
 
-            selectStatement.setInt(1, id);
+            final DSLContext context = DSL.using(connection, SQLDialect.POSTGRES);
 
-            try (ResultSet resultSet = selectStatement.executeQuery()) {
-
-                if (resultSet.next()) {
-                    return ObjectMapping.getWaybillFromResultSet(resultSet);
-                }
+            WaybillRecord record = context.fetchOne(WAYBILL, WAYBILL.WAYBILL_ID.equal(id));
+            if (record != null) {
+                return new Waybill(record);
             }
+
         } catch (SQLException e) {
             e.printStackTrace();
         }
+
         return new Waybill();
     }
 
     @Override
     public @NotNull List<@NotNull Waybill> all() {
-        List<Waybill> resultWaybills = new ArrayList<>();
 
-        try (Statement selectAllStatement = connection.createStatement()) {
+        try (Connection connection = dataSource.getConnection()) {
 
-            try (ResultSet resultSet = selectAllStatement.executeQuery(SQL_SELECT_ALL)) {
+            final DSLContext context = DSL.using(connection, SQLDialect.POSTGRES);
 
-                while (resultSet.next()) {
-                    resultWaybills.add(ObjectMapping.getWaybillFromResultSet(resultSet));
-                }
+            Result<WaybillRecord> waybillRecords = context.fetch(WAYBILL);
+            if (!waybillRecords.isEmpty()) {
+                return waybillRecords.stream().map(Waybill::new).toList();
             }
+
         } catch (SQLException e) {
             e.printStackTrace();
         }
 
-        return resultWaybills;
+        return new ArrayList<>();
     }
 
     @Override
     public int update(@NotNull Waybill entity) {
 
-        try (PreparedStatement updateStatement = connection.prepareStatement(SQL_UPDATE)) {
+        try (Connection connection = dataSource.getConnection()) {
 
-            updateStatement.setDate(1, entity.waybillDate());
-            updateStatement.setInt(2, entity.orgSenderId());
-            updateStatement.setInt(3, entity.waybillId());
+            final DSLContext context = DSL.using(connection, SQLDialect.POSTGRES);
 
-            return updateStatement.executeUpdate();
+            int waybillId = entity.waybillId();
+            final WaybillRecord waybillRecord = context.fetchOne(WAYBILL, WAYBILL.WAYBILL_ID.equal(waybillId));
+
+            if (waybillRecord != null) {
+
+                waybillRecord
+                        .setWaybillDate(entity.waybillDate().toLocalDate())
+                        .setOrgSenderId(entity.orgSenderId())
+                        .store();
+                return 1;
+            }
 
         } catch (SQLException e) {
             e.printStackTrace();
@@ -94,12 +98,15 @@ public final class WaybillDAO implements CrudDAO<Waybill> {
     @Override
     public void save(@NotNull Waybill entity) {
 
-        try (PreparedStatement insertStatement = connection.prepareStatement(SQL_INSERT))  {
+        try (Connection connection = dataSource.getConnection()) {
 
-            insertStatement.setDate(1, entity.waybillDate());
-            insertStatement.setInt(2, entity.orgSenderId());
+            final DSLContext context = DSL.using(connection, SQLDialect.POSTGRES);
 
-            insertStatement.executeUpdate();
+            final WaybillRecord waybillRecord = context.newRecord(WAYBILL);
+            waybillRecord
+                    .setWaybillDate(entity.waybillDate().toLocalDate())
+                    .setOrgSenderId(entity.orgSenderId())
+                    .store();
 
         } catch (SQLException e) {
             e.printStackTrace();
@@ -109,10 +116,14 @@ public final class WaybillDAO implements CrudDAO<Waybill> {
     @Override
     public void delete(int id) {
 
-        try (PreparedStatement deleteStatement = connection.prepareStatement(SQL_DELETE_BY_ID)) {
+        try (Connection connection = dataSource.getConnection()) {
 
-            deleteStatement.setInt(1, id);
-            deleteStatement.executeUpdate();
+            final DSLContext context = DSL.using(connection, SQLDialect.POSTGRES);
+
+            final WaybillRecord waybillRecord = context.fetchOne(WAYBILL, WAYBILL.WAYBILL_ID.equal(id));
+            if (waybillRecord != null) {
+                waybillRecord.delete();
+            }
 
         } catch (SQLException e) {
             e.printStackTrace();
@@ -122,8 +133,11 @@ public final class WaybillDAO implements CrudDAO<Waybill> {
     @Override
     public void deleteAll() {
 
-        try (Statement deleteAllStatement = connection.createStatement()) {
-            deleteAllStatement.executeUpdate(SQL_DELETE_ALL);
+        try (Connection connection = dataSource.getConnection()) {
+
+            final DSLContext context = DSL.using(connection, SQLDialect.POSTGRES);
+
+            context.deleteFrom(WAYBILL).execute();
 
         } catch (SQLException e) {
             e.printStackTrace();
