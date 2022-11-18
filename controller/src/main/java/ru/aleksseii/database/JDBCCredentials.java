@@ -21,6 +21,7 @@ public final class JDBCCredentials {
 
     private final @NotNull String port;
 
+    @Getter
     private final @NotNull String dbName;
 
     @Getter
