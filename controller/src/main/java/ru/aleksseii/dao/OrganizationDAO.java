@@ -17,7 +17,6 @@ import java.util.List;
 
 import static generated.Tables.ORGANIZATION;
 
-@SuppressWarnings({ "SqlResolve", "SqlNoDataSourceInspection" })
 public final class OrganizationDAO implements CrudDAO<Organization> {
 
     private final @NotNull HikariDataSource dataSource;
@@ -69,6 +68,10 @@ public final class OrganizationDAO implements CrudDAO<Organization> {
         return new ArrayList<>();
     }
 
+    /**
+     * @param inn inn to get instance by
+     * @return instance if found by inn, empty instance otherwise
+     */
     public @NotNull Organization getByInn(long inn) {
 
         try (Connection connection = dataSource.getConnection()) {

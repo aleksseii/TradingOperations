@@ -17,7 +17,6 @@ import java.util.List;
 
 import static generated.Tables.PRODUCT;
 
-@SuppressWarnings({ "SqlResolve", "SqlNoDataSourceInspection" })
 public final class ProductDAO implements CrudDAO<Product> {
 
     private final @NotNull HikariDataSource dataSource;

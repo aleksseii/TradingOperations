@@ -17,7 +17,6 @@ import java.util.List;
 
 import static generated.Tables.WAYBILL;
 
-@SuppressWarnings({ "SqlNoDataSourceInspection", "SqlResolve" })
 public final class WaybillDAO implements CrudDAO<Waybill> {
 
     private final @NotNull HikariDataSource dataSource;

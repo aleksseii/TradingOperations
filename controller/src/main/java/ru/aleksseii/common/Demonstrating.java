@@ -115,6 +115,11 @@ public final class Demonstrating {
         System.out.println("After deleting 1-st instance:\n");
         printWithDelimiter(orgDAO.all());
 
+        orgDAO.deleteAll();
+        System.out.println("After deleting all instances:\n");
+        System.out.println(orgDAO.all().isEmpty() ? "list is empty" : "list is not empty");
+        printWithDelimiter(orgDAO.all());
+
         orgDAO.save(new Organization(777L, "random name_1", "random acc_1"));
         orgDAO.save(new Organization(888L, "random name_2", "random acc_2"));
         System.out.println("After inserting couple of new instances:\n");

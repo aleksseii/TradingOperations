@@ -17,7 +17,7 @@ import java.util.List;
 
 import static generated.Tables.WAYBILL_ARTICLE;
 
-@SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
+
 public final class WaybillArticleDAO implements CrudDAO<WaybillArticle> {
 
     private final @NotNull HikariDataSource dataSource;
@@ -27,6 +27,10 @@ public final class WaybillArticleDAO implements CrudDAO<WaybillArticle> {
         this.dataSource = dataSource;
     }
 
+    /**
+     * @param id id to get instance by
+     * @return instance if found by id, empty instance otherwise
+     */
     @Override
     public @NotNull WaybillArticle get(int id) {
 
