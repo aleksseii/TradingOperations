@@ -8,6 +8,7 @@ repositories {
 
 dependencies {
     implementation(project(":models"))
+    implementation(project(":jooq-generated"))
 }
 
 tasks.getByName<Test>("test") {

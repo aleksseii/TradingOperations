@@ -1,5 +1,6 @@
 package ru.aleksseii.dao;
 
+import com.zaxxer.hikari.HikariDataSource;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.jetbrains.annotations.NotNull;
@@ -7,12 +8,10 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import ru.aleksseii.database.ConnectionManager;
+import ru.aleksseii.database.DataSourceManager;
 import ru.aleksseii.database.FlywayInitializer;
 import ru.aleksseii.model.Product;
 
-import java.sql.Connection;
-import java.sql.SQLException;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -40,19 +39,15 @@ public final class ProductDAOTest {
             new Product(5, "product_5", "code_5")
     );
 
-    private static final @NotNull Connection CONNECTION = ConnectionManager.getConnectionOrThrow();
+    private static final @NotNull HikariDataSource DATA_SOURCE = DataSourceManager.getHikariDataSource();
 
-    private final @NotNull ProductDAO productDAO = new ProductDAO(CONNECTION);
+    private final @NotNull ProductDAO productDAO = new ProductDAO(DATA_SOURCE);
 
     @AfterAll
-    static void closeConnection() {
+    static void closeDataSource() {
 
         FlywayInitializer.initDB();
-        try {
-            CONNECTION.close();
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
+        DATA_SOURCE.close();
     }
 
     @BeforeEach

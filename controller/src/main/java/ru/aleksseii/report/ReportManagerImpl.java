@@ -1,35 +1,32 @@
 package ru.aleksseii.report;
 
 import com.google.inject.Inject;
+import com.zaxxer.hikari.HikariDataSource;
+import generated.tables.records.ProductRecord;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import ru.aleksseii.common.ObjectMapping;
+import org.jooq.*;
+import org.jooq.impl.DSL;
 import ru.aleksseii.model.Organization;
 import ru.aleksseii.model.Product;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
+import java.math.BigDecimal;
+import java.sql.Connection;
 import java.sql.Date;
-import java.sql.*;
+import java.sql.SQLException;
+import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.*;
+
+import static generated.Tables.*;
+import static org.jooq.impl.DSL.*;
 
 public final class ReportManagerImpl implements ReportManager {
 
-    private static final @NotNull String BASE_PATH = Objects.requireNonNull(
-            ReportManagerImpl.class.getClassLoader().getResource("db/select_queries/")
-    ).getPath().substring(1); // to remove '/'-symbol from the beginning
-    private static final @NotNull String REPORT_1_SQL_FILE_NAME = "report1_top_10_org_senders.sql";
-    private static final @NotNull String REPORT_2_SQL_FILE_NAME = "report2_orgs_and_amount_of_each_sent_product.sql";
-    private static final @NotNull String REPORT_3_SQL_FILE_NAME = "report3_product_amount_proceeds_per_day.sql";
-    private static final @NotNull String REPORT_4_SQL_FILE_NAME = "report4_product_avg_prices.sql";
-    private static final @NotNull String REPORT_5_SQL_FILE_NAME = "report5_products_by_org.sql";
-
-    private final @NotNull Connection connection;
+    private final @NotNull HikariDataSource dataSource;
 
     @Inject
-    public ReportManagerImpl(@NotNull Connection connection) {
-        this.connection = connection;
+    public ReportManagerImpl(@NotNull HikariDataSource dataSource) {
+        this.dataSource = dataSource;
     }
 
     /**
@@ -39,22 +36,33 @@ public final class ReportManagerImpl implements ReportManager {
     @Override
     public @NotNull List<@NotNull Organization> getTop10OrgSenders() {
 
-        List<@NotNull Organization> result = new ArrayList<>();
+        try (Connection connection = dataSource.getConnection()) {
 
-        try (Statement selectStatement = connection.createStatement()) {
+            final DSLContext context = DSL.using(connection, SQLDialect.POSTGRES);
 
-            String sqlSelectQuery = readSQLFromFile(BASE_PATH + REPORT_1_SQL_FILE_NAME);
-            ResultSet resultSet = selectStatement.executeQuery(sqlSelectQuery);
+           final generated.tables.Organization o = ORGANIZATION.as("o");
+           final generated.tables.Waybill w = WAYBILL.as("w");
+           final generated.tables.WaybillArticle wa = WAYBILL_ARTICLE.as("wa");
 
-            while (resultSet.next()) {
-                result.add(ObjectMapping.getOrganizationFromResultSet(resultSet));
-            }
+            Result<Record4<Integer, Long, String, String>> records = context
+                    .select(o.ORG_ID, o.INN, o.NAME, o.BANK_ACCOUNT)
+                    .from(o)
+                    .join(w).on(w.ORG_SENDER_ID.equal(o.ORG_ID))
+                    .join(wa).using(w.WAYBILL_ID)
+                    .groupBy(o.ORG_ID)
+                    .orderBy(sum(wa.AMOUNT).desc())
+                    .limit(10)
+                    .fetch();
 
-        } catch (SQLException | IOException e) {
+            return records.stream()
+                    .map(r -> new Organization(r.into(ORGANIZATION)))
+                    .toList();
+
+        } catch (SQLException e) {
             e.printStackTrace();
         }
 
-        return result;
+        return new ArrayList<>();
     }
 
     /**
@@ -72,29 +80,46 @@ public final class ReportManagerImpl implements ReportManager {
 
         Set<@NotNull Organization> result = new HashSet<>();
 
-        try (Statement selectStatement = connection.createStatement()) {
+        try (Connection connection = dataSource.getConnection()) {
 
-            String sqlSelectQuery = readSQLFromFile(BASE_PATH + REPORT_2_SQL_FILE_NAME);
-            ResultSet resultSet = selectStatement.executeQuery(sqlSelectQuery);
+            final DSLContext context = DSL.using(connection, SQLDialect.POSTGRES);
 
-            while (resultSet.next()) {
+            final generated.tables.Organization o = ORGANIZATION.as("o");
+            final generated.tables.Waybill w = WAYBILL.as("w");
+            final generated.tables.WaybillArticle wa = WAYBILL_ARTICLE.as("wa");
 
-                Organization organization = ObjectMapping.getOrganizationFromResultSet(resultSet);
+            Result<Record6<Integer, Long, String, String, Integer, BigDecimal>> records = context
+                    .select(
+                            o.ORG_ID, o.INN, o.NAME, o.BANK_ACCOUNT,
+                            wa.PRODUCT_ID, sum(wa.AMOUNT).as("total_amount")
+                    )
+                    .from(o)
+                    .join(w).on(w.ORG_SENDER_ID.equal(o.ORG_ID))
+                    .join(wa).using(w.WAYBILL_ID)
+                    .groupBy(o.ORG_ID, wa.PRODUCT_ID)
+                    .orderBy(o.ORG_ID, wa.PRODUCT_ID)
+                    .fetch();
+
+            for (var record : records) {
+
+                Organization organization = new Organization(record.into(ORGANIZATION));
                 if (result.contains(organization)) {
                     continue;
                 }
 
-                int productId = resultSet.getInt("product_id");
-                int totalAmount = resultSet.getInt("total_amount");
+                Integer productId = record.getValue(PRODUCT.PRODUCT_ID);
+                BigDecimal totalAmount = (BigDecimal) record.getValue("total_amount");
 
                 if (productIdToAmount.containsKey(productId)) {
-                    if (totalAmount > productIdToAmount.get(productId)) {
+
+                    Integer requiredAmount = productIdToAmount.get(productId);
+                    if (totalAmount.compareTo(BigDecimal.valueOf(requiredAmount)) > 0) {
                         result.add(organization);
                     }
                 }
             }
 
-        } catch (SQLException | IOException e) {
+        } catch (SQLException e) {
             e.printStackTrace();
         }
 
@@ -107,77 +132,90 @@ public final class ReportManagerImpl implements ReportManager {
      * @param start start of the period
      * @param end end of the period
      * @return Map with Date of the waybill as a key and Map of products with its data as a value.<br>
-     * In List<Long> at [0] index placed amount per day,<br>
+     * In {@code List<BigDecimal>} at [0] index placed amount per day,<br>
      * at [1] index placed proceeds per day
      * for the corresponding product and for the corresponding date
      */
     @Override
-    public @NotNull Map<@NotNull Date, @NotNull Map<@NotNull Product, @NotNull List<@NotNull Long>>> getProductAmountAndSumForPeriod(
+    public @NotNull Map<@NotNull Date, @NotNull Map<@NotNull Product, @NotNull List<@NotNull BigDecimal>>> getProductAmountAndSumForPeriod(
             @NotNull Date start,
             @NotNull Date end) {
 
-        Map<Date, Map<Product, List<Long>>> result = new TreeMap<>();
+        Map<Date, Map<Product, List<BigDecimal>>> result = new TreeMap<>();
 
-        try (PreparedStatement selectStatement = connection.prepareStatement(
-                readSQLFromFile(BASE_PATH + REPORT_3_SQL_FILE_NAME)
-        )) {
+        try (Connection connection = dataSource.getConnection()) {
 
-          selectStatement.setDate(1, start);
-          selectStatement.setDate(2, end);
+            final DSLContext context = DSL.using(connection, SQLDialect.POSTGRES);
 
-            try (ResultSet resultSet = selectStatement.executeQuery()) {
+            final generated.tables.Product p = PRODUCT.as("p");
+            final generated.tables.Waybill w = WAYBILL.as("w");
+            final generated.tables.WaybillArticle wa = WAYBILL_ARTICLE.as("wa");
 
-                Map<Product, Integer> totalAmount = new TreeMap<>(Comparator.comparingInt(Product::productId));
-                Map<Product, Long> totalProceeds = new TreeMap<>(Comparator.comparingInt(Product::productId));
+            Result<Record6<LocalDate, Integer, String, String, BigDecimal, BigDecimal>> records = context
+                    .select(
+                            w.WAYBILL_DATE,
+                            p.PRODUCT_ID, p.NAME, p.INTERNAL_CODE,
+                            sum(wa.AMOUNT).as("amount_per_day"),
+                            sum(wa.AMOUNT.mul(wa.PRICE)).as("proceeds_per_day")
+                    )
+                    .from(p)
+                    .join(wa).using(p.PRODUCT_ID)
+                    .join(w).using(w.WAYBILL_ID)
+                    .where(w.WAYBILL_DATE.between(start.toLocalDate(), end.toLocalDate()))
+                    .groupBy(w.WAYBILL_DATE, p.PRODUCT_ID)
+                    .orderBy(w.WAYBILL_DATE, p.PRODUCT_ID)
+                    .fetch();
 
-                while (resultSet.next()) {
+            Map<Product, BigDecimal> totalAmount = new TreeMap<>(Comparator.comparingInt(Product::productId));
+            Map<Product, BigDecimal> totalProceeds = new TreeMap<>(Comparator.comparingInt(Product::productId));
 
-                    Date date = resultSet.getDate("waybill_date");
-                    Product product = ObjectMapping.getProductFromResultSet(resultSet);
+            for (var record : records) {
 
-                    if (!(totalAmount.containsKey(product) || totalProceeds.containsKey(product))) {
-                        totalAmount.put(product, 0);
-                        totalProceeds.put(product, 0L);
-                    }
+                Date date = Date.valueOf(record.getValue(WAYBILL.WAYBILL_DATE));
+                Product product = new Product(record.into(PRODUCT));
 
-                    if (!result.containsKey(date)) {
-                        result.put(date, new TreeMap<>(Comparator.comparingInt(Product::productId)));
-                    }
-
-                    Map<Product, List<Long>> productToList = result.get(date);
-                    if (!productToList.containsKey(product)) {
-                        List<Long> productData = new ArrayList<>(2);
-                        productData.add(0L);
-                        productData.add(0L);
-                        productToList.put(product, productData);
-                    }
-
-                    // List with 2 elements: [0] - amount per day, [1] - proceeds per day
-                    List<Long> productData = productToList.get(product);
-                    int amount = resultSet.getInt("amount_per_day");
-                    long proceeds = resultSet.getLong("proceeds_per_day");
-
-                    totalAmount.put(product, totalAmount.get(product) + amount);
-                    totalProceeds.put(product, totalProceeds.get(product) + proceeds);
-
-                    productData.set(0, productData.get(0) + amount);
-                    productData.set(1, productData.get(1) + proceeds);
-
-                    productToList.put(product, productData);
-
-                    result.put(date, productToList);
+                if (!(totalAmount.containsKey(product) || totalProceeds.containsKey(product))) {
+                    totalAmount.put(product, BigDecimal.ZERO);
+                    totalProceeds.put(product, BigDecimal.ZERO);
                 }
 
-                // outputting totals
-                System.out.println("\r\nTotal Amount:");
-                printMapContent(totalAmount);
+                if (!result.containsKey(date)) {
+                    result.put(date, new TreeMap<>(Comparator.comparingInt(Product::productId)));
+                }
 
-                System.out.println("\r\nTotal Proceeds:");
-                printMapContent(totalProceeds);
-                System.out.println();
+                Map<Product, List<BigDecimal>> productToList = result.get(date);
+                if (!productToList.containsKey(product)) {
+                    List<BigDecimal> productData = new ArrayList<>(2);
+                    productData.add(BigDecimal.ZERO);
+                    productData.add(BigDecimal.ZERO);
+                    productToList.put(product, productData);
+                }
+
+                // List with 2 elements: [0] - amount per day, [1] - proceeds per day
+                List<BigDecimal> productData = productToList.get(product);
+                BigDecimal amount = (BigDecimal) record.getValue("amount_per_day");
+                BigDecimal proceeds = (BigDecimal) record.getValue("proceeds_per_day");
+
+                totalAmount.put(product, totalAmount.get(product).add(amount));
+                totalProceeds.put(product, totalProceeds.get(product).add(proceeds));
+
+                productData.set(0, productData.get(0).add(amount));
+                productData.set(1, productData.get(1).add(proceeds));
+
+                productToList.put(product, productData);
+
+                result.put(date, productToList);
             }
 
-        } catch (SQLException | IOException e) {
+            // outputting totals
+            System.out.println("\r\nTotal Amount:");
+            printMapContent(totalAmount);
+
+            System.out.println("\r\nTotal Proceeds:");
+            printMapContent(totalProceeds);
+            System.out.println();
+
+        } catch (SQLException e) {
             e.printStackTrace();
         }
 
@@ -198,24 +236,36 @@ public final class ReportManagerImpl implements ReportManager {
 
         Map<Product, Double> result = new TreeMap<>(Comparator.comparingInt(Product::productId));
 
-        try (PreparedStatement selectStatement = connection.prepareStatement(
-                readSQLFromFile(BASE_PATH + REPORT_4_SQL_FILE_NAME)
-        )) {
+        try (Connection connection = dataSource.getConnection()) {
 
-            selectStatement.setDate(1, start);
-            selectStatement.setDate(2, end);
+            final DSLContext context = DSL.using(connection, SQLDialect.POSTGRES);
 
-            try (ResultSet resultSet = selectStatement.executeQuery()) {
+            final generated.tables.Product p = PRODUCT.as("p");
+            final generated.tables.Waybill w = WAYBILL.as("w");
+            final generated.tables.WaybillArticle wa = WAYBILL_ARTICLE.as("wa");
 
-                while (resultSet.next()) {
+            Result<Record4<Integer, String, String, BigDecimal>> records = context
+                    .select(
+                            p.PRODUCT_ID, p.NAME, p.INTERNAL_CODE,
+                            round(avg(wa.PRICE), 4).as("avg_price")
+                    )
+                    .from(p)
+                    .join(wa).using(p.PRODUCT_ID)
+                    .join(w).using(w.WAYBILL_ID)
+                    .where(w.WAYBILL_DATE.between(start.toLocalDate(), end.toLocalDate()))
+                    .groupBy(p.PRODUCT_ID)
+                    .orderBy(p.PRODUCT_ID)
+                    .fetch();
 
-                    Product product = ObjectMapping.getProductFromResultSet(resultSet);
-                    double avgPrice = resultSet.getDouble("avg_price");
+            for (var record : records) {
 
-                    result.put(product, avgPrice);
-                }
+                Product product = new Product(record.into(PRODUCT));
+                double avgPrice = Double.parseDouble(record.getValue("avg_price").toString());
+
+                result.put(product, avgPrice);
             }
-        } catch (SQLException | IOException e) {
+
+        } catch (SQLException e) {
             e.printStackTrace();
         }
 
@@ -236,60 +286,61 @@ public final class ReportManagerImpl implements ReportManager {
 
         Map<Organization, List<Product>> result = new TreeMap<>(Comparator.comparingInt(Organization::orgId));
 
-        try (PreparedStatement selectStatement = connection.prepareStatement(
-                readSQLFromFile(BASE_PATH + REPORT_5_SQL_FILE_NAME)
-        )) {
+        try (Connection connection = dataSource.getConnection()) {
 
-            selectStatement.setDate(1, start);
-            selectStatement.setDate(2, end);
+            final DSLContext context = using(connection, SQLDialect.POSTGRES);
 
-            try (ResultSet resultSet = selectStatement.executeQuery()) {
+            final generated.tables.Product p = PRODUCT.as("p");
+            final generated.tables.Organization o = ORGANIZATION.as("o");
+            final generated.tables.Waybill w = WAYBILL.as("w");
+            final generated.tables.WaybillArticle wa = WAYBILL_ARTICLE.as("wa");
 
-                while (resultSet.next()) {
+            Result<Record7<Integer, Long, String, String, Integer, String, String>> records = context
+                    .select(
+                            o.ORG_ID, o.INN, o.NAME.as("org_name"), o.BANK_ACCOUNT,
+                            p.PRODUCT_ID, p.NAME.as("product_name"), p.INTERNAL_CODE
+                    )
+                    .from(o)
+                    .leftJoin(w).on(w.ORG_SENDER_ID.equal(o.ORG_ID))
+                    .leftJoin(wa).using(w.WAYBILL_ID)
+                    .leftJoin(p).using(p.PRODUCT_ID)
+                    .where(w.WAYBILL_DATE.between(start.toLocalDate(), end.toLocalDate()))
+                    .or(w.WAYBILL_ID.isNull())
+                    .groupBy(o.ORG_ID, p.PRODUCT_ID)
+                    .orderBy(o.ORG_ID, p.PRODUCT_ID)
+                    .fetch();
 
-                    Organization organization = getOrganizationFromResultSet(resultSet);
-                    Product product = getProductFromResultSet(resultSet);
+            for (var record : records) {
 
-                    if (!result.containsKey(organization)) {
-                        result.put(organization, new ArrayList<>());
-                    }
+                Organization organization = new Organization(
+                        record.getValue(ORGANIZATION.ORG_ID),
+                        record.getValue(ORGANIZATION.INN),
+                        (String) record.getValue("org_name"),
+                        record.getValue(ORGANIZATION.BANK_ACCOUNT)
+                );
 
-                    if (product != null) {
-                        List<Product> productList = result.get(organization);
-                        productList.add(product);
-                        result.put(organization, productList);
-                    }
+                ProductRecord productRecord = new ProductRecord(
+                        record.getValue(PRODUCT.PRODUCT_ID),
+                        (String) record.getValue("product_name"),
+                        record.getValue(PRODUCT.INTERNAL_CODE)
+                );
+
+                if (!result.containsKey(organization)) {
+                    result.put(organization, new ArrayList<>());
+                }
+
+                if (productRecord.getName() != null && productRecord.getInternalCode() != null) {
+                    List<Product> products = result.get(organization);
+                    products.add(new Product(productRecord));
+                    result.put(organization, products);
                 }
             }
 
-        } catch (SQLException | IOException e) {
+        } catch (SQLException e) {
             e.printStackTrace();
         }
 
         return result;
-    }
-
-    private static @NotNull Organization getOrganizationFromResultSet(@NotNull ResultSet resultSet)
-            throws SQLException {
-        return new Organization(
-                resultSet.getInt("org_id"),
-                resultSet.getLong("inn"),
-                resultSet.getString("org_name"),
-                resultSet.getString("bank_account")
-        );
-    }
-
-    private static @Nullable Product getProductFromResultSet(@NotNull ResultSet resultSet)
-            throws SQLException {
-
-        int id = resultSet.getInt("product_id");
-        String name = resultSet.getString("product_name");
-        String internalCode = resultSet.getString("internal_code");
-        if (name == null || internalCode == null) {
-            return null;
-        }
-
-        return new Product(id, name, internalCode);
     }
 
     private static <K, V> void printMapContent(@NotNull Map<K, V> map) {
@@ -297,15 +348,5 @@ public final class ReportManagerImpl implements ReportManager {
         for (Map.Entry<K, V> entry : map.entrySet()) {
             System.out.println("\t" + entry.getKey() + " " + "-".repeat(20) + " " + entry.getValue());
         }
-    }
-
-    private static @NotNull String readSQLFromFile(@NotNull String filePath) throws IOException {
-
-        if (!filePath.endsWith(".sql")) {
-            throw new IllegalArgumentException("Input should be .sql file");
-        }
-
-        List<String> lines = Files.readAllLines(Paths.get(filePath));
-        return String.join("\n", lines);
     }
 }

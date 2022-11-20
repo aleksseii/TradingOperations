@@ -1,5 +1,8 @@
 package ru.aleksseii.model;
 
+import generated.tables.records.WaybillArticleRecord;
+import org.jetbrains.annotations.NotNull;
+
 public record WaybillArticle(int waybillArticleId,
                              long price,
                              int amount,
@@ -20,6 +23,16 @@ public record WaybillArticle(int waybillArticleId,
 
     public WaybillArticle() {
         this(0, 0, 0, 0, 0);
+    }
+
+    public WaybillArticle(@NotNull WaybillArticleRecord record) {
+        this(
+                record.getWaybillArticleId(),
+                record.getPrice(),
+                record.getAmount(),
+                record.getWaybillId(),
+                record.getProductId()
+        );
     }
 
     public boolean isEmpty() {

@@ -1,43 +1,31 @@
 package ru.aleksseii.dao;
 
 import com.google.inject.Inject;
+import com.zaxxer.hikari.HikariDataSource;
+import generated.tables.records.OrganizationRecord;
 import org.jetbrains.annotations.NotNull;
+import org.jooq.DSLContext;
+import org.jooq.Result;
+import org.jooq.SQLDialect;
+import org.jooq.impl.DSL;
 import ru.aleksseii.model.Organization;
-import ru.aleksseii.common.ObjectMapping;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
-@SuppressWarnings({ "SqlResolve", "SqlNoDataSourceInspection" })
+import static generated.Tables.ORGANIZATION;
+
 public final class OrganizationDAO implements CrudDAO<Organization> {
 
-    private static final @NotNull String SQL_SELECT_BY_ID = "SELECT * FROM organization WHERE org_id = ?";
-
-    private static final @NotNull String SQL_SELECT_BY_NAME = "SELECT * FROM organization WHERE name = ?";
-
-    private static final @NotNull String SQL_SELECT_BY_INN = "SELECT * FROM organization WHERE inn = ?";
-
-    private static final @NotNull String SQL_SELECT_ALL = "SELECT * FROM organization";
-
-    private static final @NotNull String SQL_UPDATE =
-            "UPDATE organization SET inn = ?, name = ?, bank_account = ? WHERE org_id = ?";
-
-    private static final @NotNull String SQL_INSERT =
-            "INSERT INTO organization(inn, name, bank_account) VALUES (?, ?, ?)";
-
-    private static final @NotNull String SQL_DELETE_BY_ID = "DELETE FROM organization WHERE org_id = ?";
-
-    @SuppressWarnings("SqlWithoutWhere")
-    private static final @NotNull String SQL_DELETE_ALL = "DELETE FROM organization";
-
-
-    private final @NotNull Connection connection;
+    private final @NotNull HikariDataSource dataSource;
 
     @Inject
-    public OrganizationDAO(@NotNull Connection connection) {
-        this.connection = connection;
+    public OrganizationDAO(@NotNull HikariDataSource dataSource) {
+        this.dataSource = dataSource;
     }
+
 
     /**
      * @param id id to get instance by
@@ -46,14 +34,13 @@ public final class OrganizationDAO implements CrudDAO<Organization> {
     @Override
     public @NotNull Organization get(int id) {
 
-        try (PreparedStatement selectStatement = connection.prepareStatement(SQL_SELECT_BY_ID)) {
+        try (Connection connection = dataSource.getConnection()) {
 
-            selectStatement.setInt(1, id);
+            final DSLContext context = DSL.using(connection, SQLDialect.POSTGRES);
 
-            try (ResultSet resultSet = selectStatement.executeQuery()) {
-                if (resultSet.next()) {
-                    return ObjectMapping.getOrganizationFromResultSet(resultSet);
-                }
+            final OrganizationRecord record = context.fetchOne(ORGANIZATION, ORGANIZATION.ORG_ID.equal(id));
+            if (record != null) {
+                return new Organization(record);
             }
 
         } catch (SQLException e) {
@@ -65,35 +52,35 @@ public final class OrganizationDAO implements CrudDAO<Organization> {
 
     public @NotNull List<@NotNull Organization> get(@NotNull String name) {
 
-        List<Organization> resultOrganizations = new ArrayList<>();
+        try (Connection connection = dataSource.getConnection()) {
 
-        try (PreparedStatement selectByNameStatement = connection.prepareStatement(SQL_SELECT_BY_NAME)) {
+            final DSLContext context = DSL.using(connection, SQLDialect.POSTGRES);
 
-            selectByNameStatement.setString(1, name);
-
-            try (ResultSet resultSet = selectByNameStatement.executeQuery()) {
-                while (resultSet.next()) {
-                    resultOrganizations.add(ObjectMapping.getOrganizationFromResultSet(resultSet));
-                }
+            Result<OrganizationRecord> orgRecords = context.fetch(ORGANIZATION, ORGANIZATION.NAME.equal(name));
+            if (!orgRecords.isEmpty()) {
+                return orgRecords.stream().map(Organization::new).toList();
             }
 
         } catch (SQLException e) {
             e.printStackTrace();
         }
 
-        return resultOrganizations;
+        return new ArrayList<>();
     }
 
+    /**
+     * @param inn inn to get instance by
+     * @return instance if found by inn, empty instance otherwise
+     */
     public @NotNull Organization getByInn(long inn) {
 
-        try (PreparedStatement selectByInnStatement = connection.prepareStatement(SQL_SELECT_BY_INN)) {
+        try (Connection connection = dataSource.getConnection()) {
 
-            selectByInnStatement.setLong(1, inn);
+            final DSLContext context = DSL.using(connection, SQLDialect.POSTGRES);
 
-            try (ResultSet resultSet = selectByInnStatement.executeQuery()) {
-                if (resultSet.next()) {
-                    return ObjectMapping.getOrganizationFromResultSet(resultSet);
-                }
+            final OrganizationRecord record = context.fetchOne(ORGANIZATION, ORGANIZATION.INN.equal(inn));
+            if (record != null) {
+                return new Organization(record);
             }
 
         } catch (SQLException e) {
@@ -106,33 +93,41 @@ public final class OrganizationDAO implements CrudDAO<Organization> {
     @Override
     public @NotNull List<@NotNull Organization> all() {
 
-        List<Organization> resultOrganizations = new ArrayList<>();
+        try (Connection connection = dataSource.getConnection()) {
 
-        try (Statement selectAllStatement = connection.createStatement()) {
+            final DSLContext context = DSL.using(connection, SQLDialect.POSTGRES);
 
-            try (ResultSet resultSet = selectAllStatement.executeQuery(SQL_SELECT_ALL)) {
-                while (resultSet.next()) {
-                    resultOrganizations.add(ObjectMapping.getOrganizationFromResultSet(resultSet));
-                }
+            final Result<OrganizationRecord> orgRecords = context.fetch(ORGANIZATION);
+            if (!orgRecords.isEmpty()) {
+                return orgRecords.stream().map(Organization::new).toList();
             }
+
         } catch (SQLException e) {
             e.printStackTrace();
         }
 
-        return resultOrganizations;
+        return new ArrayList<>();
     }
 
     @Override
     public int update(@NotNull Organization entity) {
 
-        try (PreparedStatement updateStatement = connection.prepareStatement(SQL_UPDATE)) {
+        try (Connection connection = dataSource.getConnection()) {
 
-            updateStatement.setLong(1, entity.inn());
-            updateStatement.setString(2, entity.name());
-            updateStatement.setString(3, entity.bankAccount());
-            updateStatement.setInt(4, entity.orgId());
+            final DSLContext context = DSL.using(connection, SQLDialect.POSTGRES);
 
-            return updateStatement.executeUpdate();
+            int orgId = entity.orgId();
+            OrganizationRecord orgRecord = context.fetchOne(ORGANIZATION, ORGANIZATION.ORG_ID.equal(orgId));
+
+            if (orgRecord != null) {
+
+                orgRecord
+                        .setInn(entity.inn())
+                        .setName(entity.name())
+                        .setBankAccount(entity.bankAccount())
+                        .store();
+                return 1;
+            }
 
         } catch (SQLException e) {
             e.printStackTrace();
@@ -144,13 +139,16 @@ public final class OrganizationDAO implements CrudDAO<Organization> {
     @Override
     public void save(@NotNull Organization entity) {
 
-        try (PreparedStatement insertStatement = connection.prepareStatement(SQL_INSERT)) {
+        try (Connection connection = dataSource.getConnection()) {
 
-            insertStatement.setLong(1, entity.inn());
-            insertStatement.setString(2, entity.name());
-            insertStatement.setString(3, entity.bankAccount());
+            final DSLContext context = DSL.using(connection, SQLDialect.POSTGRES);
 
-            insertStatement.executeUpdate();
+            OrganizationRecord orgRecord = context.newRecord(ORGANIZATION);
+            orgRecord
+                    .setInn(entity.inn())
+                    .setName(entity.name())
+                    .setBankAccount(entity.bankAccount())
+                    .store();
 
         } catch (SQLException e) {
             e.printStackTrace();
@@ -160,22 +158,29 @@ public final class OrganizationDAO implements CrudDAO<Organization> {
     @Override
     public void delete(int id) {
 
-        try (PreparedStatement deleteStatement = connection.prepareStatement(SQL_DELETE_BY_ID)) {
+        try (Connection connection = dataSource.getConnection()) {
 
-            deleteStatement.setInt(1, id);
-            deleteStatement.executeUpdate();
+            final DSLContext context = DSL.using(connection, SQLDialect.POSTGRES);
+
+            final OrganizationRecord orgRecord = context.fetchOne(ORGANIZATION, ORGANIZATION.ORG_ID.equal(id));
+            if (orgRecord != null) {
+                orgRecord.delete();
+            }
 
         } catch (SQLException e) {
             e.printStackTrace();
         }
-
     }
 
     @Override
     public void deleteAll() {
 
-        try (Statement deleteAllStatement = connection.createStatement()) {
-            deleteAllStatement.executeQuery(SQL_DELETE_ALL);
+        try (Connection connection = dataSource.getConnection()) {
+
+            final DSLContext context = DSL.using(connection, SQLDialect.POSTGRES);
+
+            context.deleteFrom(ORGANIZATION).execute();
+
         } catch (SQLException e) {
             e.printStackTrace();
         }

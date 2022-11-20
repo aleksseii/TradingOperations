@@ -2,6 +2,7 @@ package ru.aleksseii.report;
 
 import com.google.inject.Guice;
 import com.google.inject.Injector;
+import com.zaxxer.hikari.HikariDataSource;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -9,16 +10,15 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import ru.aleksseii.common.TradingOperationsModule;
 import ru.aleksseii.dao.OrganizationDAO;
-import ru.aleksseii.database.ConnectionManager;
+import ru.aleksseii.database.DataSourceManager;
 import ru.aleksseii.database.FlywayInitializer;
 import ru.aleksseii.model.Organization;
 import ru.aleksseii.model.Product;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
-import java.sql.Connection;
+import java.math.BigDecimal;
 import java.sql.Date;
-import java.sql.SQLException;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -63,26 +63,26 @@ public final class ReportManagerImplTest {
             ORGANIZATION_4, List.of()
     );
 
-    private static final @NotNull Map<@NotNull Date, @NotNull Map<@NotNull Product, @NotNull List<@NotNull Long>>> PRODUCT_AMOUNT_AND_SUM = Map.of(
+    private static final @NotNull Map<@NotNull Date, @NotNull Map<@NotNull Product, @NotNull List<@NotNull BigDecimal>>> PRODUCT_AMOUNT_AND_SUM = Map.of(
 
             START_DATE, Map.of(
-                    PRODUCT_3, List.of(2L, 10_000L)
+                    PRODUCT_3, List.of(BigDecimal.valueOf(2), BigDecimal.valueOf(10_000))
             ),
             Date.valueOf("2022-11-06"), Map.of(
-                    PRODUCT_4, List.of(3L, 1_500L),
-                    PRODUCT_5, List.of(10L, 3_000L)),
+                    PRODUCT_4, List.of(BigDecimal.valueOf(3), BigDecimal.valueOf(1_500)),
+                    PRODUCT_5, List.of(BigDecimal.TEN, BigDecimal.valueOf(3_000))),
             Date.valueOf("2022-11-07"), Map.of(
-                    PRODUCT_5, List.of(3L, 900L)
+                    PRODUCT_5, List.of(BigDecimal.valueOf(3), BigDecimal.valueOf(900))
             ),
             END_DATE, Map.of(
-                    PRODUCT_1, List.of(4L, 3_600L),
-                    PRODUCT_4, List.of(5L, 2_250L)
+                    PRODUCT_1, List.of(BigDecimal.valueOf(4), BigDecimal.valueOf(3_600)),
+                    PRODUCT_4, List.of(BigDecimal.valueOf(5), BigDecimal.valueOf(2_250))
             )
     );
 
-    private static final @NotNull Connection CONNECTION = ConnectionManager.getConnectionOrThrow();
+    private static final @NotNull HikariDataSource DATA_SOURCE = DataSourceManager.getHikariDataSource();
 
-    private static final @NotNull Injector INJECTOR = Guice.createInjector(new TradingOperationsModule(CONNECTION));
+    private static final @NotNull Injector INJECTOR = Guice.createInjector(new TradingOperationsModule(DATA_SOURCE));
 
     private final @NotNull ReportManager reportManager = INJECTOR.getInstance(ReportManagerImpl.class);
 
@@ -94,11 +94,7 @@ public final class ReportManagerImplTest {
     @AfterAll
     static void afterAll() {
         initDB();
-        try {
-            CONNECTION.close();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
+        DATA_SOURCE.close();
     }
 
     @Test
@@ -155,7 +151,7 @@ public final class ReportManagerImplTest {
         PrintStream originalOut = System.out;
 
         System.setOut(new PrintStream(outputStream));
-        Map<Date, Map<Product, List<Long>>> result = reportManager.getProductAmountAndSumForPeriod(
+        Map<Date, Map<Product, List<BigDecimal>>> result = reportManager.getProductAmountAndSumForPeriod(
                 START_DATE,
                 END_DATE
         );

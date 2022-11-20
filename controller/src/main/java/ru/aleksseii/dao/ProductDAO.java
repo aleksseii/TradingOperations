@@ -1,41 +1,31 @@
 package ru.aleksseii.dao;
 
 import com.google.inject.Inject;
+import com.zaxxer.hikari.HikariDataSource;
+import generated.tables.records.ProductRecord;
 import org.jetbrains.annotations.NotNull;
+import org.jooq.DSLContext;
+import org.jooq.Result;
+import org.jooq.SQLDialect;
+import org.jooq.impl.DSL;
 import ru.aleksseii.model.Product;
-import ru.aleksseii.common.ObjectMapping;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
-@SuppressWarnings({ "SqlResolve", "SqlNoDataSourceInspection" })
+import static generated.Tables.PRODUCT;
+
 public final class ProductDAO implements CrudDAO<Product> {
 
-    private static final @NotNull String SQL_SELECT_BY_ID = "SELECT * FROM product WHERE product_id = ?";
-
-    private static final @NotNull String SQL_SELECT_BY_NAME = "SELECT * FROM product WHERE name = ?";
-
-    private static final @NotNull String SQL_SELECT_ALL = "SELECT * FROM product";
-
-    private static final @NotNull String SQL_UPDATE =
-            "UPDATE product SET name = ?, internal_code = ? WHERE product_id = ?";
-
-    private static final @NotNull String SQL_INSERT =
-            "INSERT INTO product(name, internal_code) VALUES (?, ?)";
-
-    private static final @NotNull String SQL_DELETE_BY_ID = "DELETE FROM product WHERE product_id = ?";
-
-    @SuppressWarnings("SqlWithoutWhere")
-    private static final @NotNull String SQL_DELETE_ALL = "DELETE FROM product";
-
-
-    private final @NotNull Connection connection;
+    private final @NotNull HikariDataSource dataSource;
 
     @Inject
-    public ProductDAO(@NotNull Connection connection) {
-        this.connection = connection;
+    public ProductDAO(@NotNull HikariDataSource dataSource) {
+        this.dataSource = dataSource;
     }
+
 
     /**
      * @param id id to get instance by
@@ -44,73 +34,77 @@ public final class ProductDAO implements CrudDAO<Product> {
     @Override
     public @NotNull Product get(int id) {
 
-        try (PreparedStatement selectStatement = connection.prepareStatement(SQL_SELECT_BY_ID)) {
+        try (Connection connection = dataSource.getConnection()) {
 
-            selectStatement.setInt(1, id);
+            final DSLContext context = DSL.using(connection, SQLDialect.POSTGRES);
 
-            try (ResultSet resultSet = selectStatement.executeQuery()) {
-
-                if (resultSet.next()) {
-                    return ObjectMapping.getProductFromResultSet(resultSet);
-                }
+            final ProductRecord record = context.fetchOne(PRODUCT, PRODUCT.PRODUCT_ID.equal(id));
+            if (record != null) {
+                return new Product(record);
             }
+
         } catch (SQLException e) {
             e.printStackTrace();
         }
+
         return new Product();
     }
 
     public @NotNull List<@NotNull Product> get(@NotNull String name) {
 
-        List<Product> resultProducts = new ArrayList<>();
+        try (Connection connection = dataSource.getConnection()) {
 
-        try (PreparedStatement selectByNameStatement = connection.prepareStatement(SQL_SELECT_BY_NAME)) {
+            final DSLContext context = DSL.using(connection, SQLDialect.POSTGRES);
 
-            selectByNameStatement.setString(1, name);
-
-            try (ResultSet resultSet = selectByNameStatement.executeQuery()) {
-                while (resultSet.next()) {
-                    resultProducts.add(ObjectMapping.getProductFromResultSet(resultSet));
-                }
+            final Result<ProductRecord> productRecords = context.fetch(PRODUCT, PRODUCT.NAME.equal(name));
+            if (!productRecords.isEmpty()) {
+                return productRecords.stream().map(Product::new).toList();
             }
 
         } catch (SQLException e) {
             e.printStackTrace();
         }
 
-        return resultProducts;
+        return new ArrayList<>();
     }
 
     @Override
     public @NotNull List<@NotNull Product> all() {
 
-        List<Product> resultProducts = new ArrayList<>();
+        try (Connection connection = dataSource.getConnection()) {
 
-        try (Statement selectAllStatement = connection.createStatement()) {
+            final DSLContext context = DSL.using(connection, SQLDialect.POSTGRES);
 
-            try (ResultSet resultSet = selectAllStatement.executeQuery(SQL_SELECT_ALL)) {
-
-                while (resultSet.next()) {
-                    resultProducts.add(ObjectMapping.getProductFromResultSet(resultSet));
-                }
+            final Result<ProductRecord> productRecords = context.fetch(PRODUCT);
+            if (!productRecords.isEmpty()) {
+                return productRecords.stream().map(Product::new).toList();
             }
+
         } catch (SQLException e) {
             e.printStackTrace();
         }
 
-        return resultProducts;
+        return new ArrayList<>();
     }
 
     @Override
     public int update(@NotNull Product entity) {
 
-        try (PreparedStatement updateStatement = connection.prepareStatement(SQL_UPDATE)) {
+        try (Connection connection = dataSource.getConnection()) {
 
-            updateStatement.setString(1, entity.name());
-            updateStatement.setString(2, entity.internalCode());
-            updateStatement.setInt(3, entity.productId());
+            final DSLContext context = DSL.using(connection, SQLDialect.POSTGRES);
 
-            return updateStatement.executeUpdate();
+            int productId = entity.productId();
+            final ProductRecord productRecord = context.fetchOne(PRODUCT, PRODUCT.PRODUCT_ID.equal(productId));
+
+            if (productRecord != null) {
+
+                productRecord
+                        .setName(entity.name())
+                        .setInternalCode(entity.internalCode())
+                        .store();
+                return 1;
+            }
 
         } catch (SQLException e) {
             e.printStackTrace();
@@ -122,12 +116,15 @@ public final class ProductDAO implements CrudDAO<Product> {
     @Override
     public void save(@NotNull Product entity) {
 
-        try (PreparedStatement insertStatement = connection.prepareStatement(SQL_INSERT))  {
+        try (Connection connection = dataSource.getConnection()) {
 
-            insertStatement.setString(1, entity.name());
-            insertStatement.setString(2, entity.internalCode());
+            final DSLContext context = DSL.using(connection, SQLDialect.POSTGRES);
 
-            insertStatement.executeUpdate();
+            final ProductRecord productRecord = context.newRecord(PRODUCT);
+            productRecord
+                    .setName(entity.name())
+                    .setInternalCode(entity.internalCode())
+                    .store();
 
         } catch (SQLException e) {
             e.printStackTrace();
@@ -137,10 +134,14 @@ public final class ProductDAO implements CrudDAO<Product> {
     @Override
     public void delete(int id) {
 
-        try (PreparedStatement deleteStatement = connection.prepareStatement(SQL_DELETE_BY_ID)) {
+        try (Connection connection = dataSource.getConnection()) {
 
-            deleteStatement.setInt(1, id);
-            deleteStatement.executeUpdate();
+            final DSLContext context = DSL.using(connection, SQLDialect.POSTGRES);
+
+            final ProductRecord productRecord = context.fetchOne(PRODUCT, PRODUCT.PRODUCT_ID.equal(id));
+            if (productRecord != null) {
+                productRecord.delete();
+            }
 
         } catch (SQLException e) {
             e.printStackTrace();
@@ -150,8 +151,11 @@ public final class ProductDAO implements CrudDAO<Product> {
     @Override
     public void deleteAll() {
 
-        try (Statement deleteAllStatement = connection.createStatement()) {
-            deleteAllStatement.executeUpdate(SQL_DELETE_ALL);
+        try (Connection connection = dataSource.getConnection()) {
+
+            final DSLContext context = DSL.using(connection, SQLDialect.POSTGRES);
+
+            context.deleteFrom(PRODUCT).execute();
 
         } catch (SQLException e) {
             e.printStackTrace();

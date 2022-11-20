@@ -2,12 +2,13 @@ package ru.aleksseii.common;
 
 import com.google.inject.Guice;
 import com.google.inject.Injector;
+import com.zaxxer.hikari.HikariDataSource;
 import org.jetbrains.annotations.NotNull;
 import ru.aleksseii.dao.OrganizationDAO;
 import ru.aleksseii.dao.ProductDAO;
 import ru.aleksseii.dao.WaybillArticleDAO;
 import ru.aleksseii.dao.WaybillDAO;
-import ru.aleksseii.database.ConnectionManager;
+import ru.aleksseii.database.DataSourceManager;
 import ru.aleksseii.database.FlywayInitializer;
 import ru.aleksseii.model.Organization;
 import ru.aleksseii.model.Product;
@@ -16,7 +17,7 @@ import ru.aleksseii.model.WaybillArticle;
 import ru.aleksseii.report.ReportManager;
 import ru.aleksseii.report.ReportManagerImpl;
 
-import java.sql.Connection;
+import java.math.BigDecimal;
 import java.sql.Date;
 import java.util.Collection;
 import java.util.List;
@@ -25,8 +26,8 @@ import java.util.Map;
 @SuppressWarnings("DuplicatedCode")
 public final class Demonstrating {
 
-    private static final @NotNull Connection CONNECTION = ConnectionManager.getConnectionOrThrow();
-    private static final @NotNull Injector INJECTOR = Guice.createInjector(new TradingOperationsModule(CONNECTION));
+    private static final @NotNull HikariDataSource DATA_SOURCE = DataSourceManager.getHikariDataSource();
+    private static final @NotNull Injector INJECTOR = Guice.createInjector(new TradingOperationsModule(DATA_SOURCE));
     private static final @NotNull String DELIMITER = "=".repeat(100);
 
     private static final @NotNull Date START_DATE = Date.valueOf("2022-11-05");
@@ -41,6 +42,7 @@ public final class Demonstrating {
         reportManagerDemo();
 
         FlywayInitializer.initDB();
+        DATA_SOURCE.close();
     }
 
     private static void productDAODemo() {
@@ -111,6 +113,11 @@ public final class Demonstrating {
 
         orgDAO.delete(1);
         System.out.println("After deleting 1-st instance:\n");
+        printWithDelimiter(orgDAO.all());
+
+        orgDAO.deleteAll();
+        System.out.println("After deleting all instances:\n");
+        System.out.println(orgDAO.all().isEmpty() ? "list is empty" : "list is not empty");
         printWithDelimiter(orgDAO.all());
 
         orgDAO.save(new Organization(777L, "random name_1", "random acc_1"));
@@ -209,17 +216,17 @@ public final class Demonstrating {
 
         System.out.println("Getting amount and proceed for every product for each day\nin period from " +
                 START_DATE + " to " + END_DATE + ".\nAnd getting totals for the period (report 3):\n");
-        Map<Date, Map<Product, List<Long>>> result =
+        Map<Date, Map<Product, List<BigDecimal>>> result =
                 reportManager.getProductAmountAndSumForPeriod(START_DATE, END_DATE);
 
-        for (Map.Entry<Date, Map<Product, List<Long>>> outerEntry : result.entrySet()) {
+        for (Map.Entry<Date, Map<Product, List<BigDecimal>>> outerEntry : result.entrySet()) {
             Date date = outerEntry.getKey();
             System.out.println("Date: " + date);
 
-            for (Map.Entry<Product, List<Long>> innerEntry : outerEntry.getValue().entrySet()) {
+            for (Map.Entry<Product, List<BigDecimal>> innerEntry : outerEntry.getValue().entrySet()) {
 
                 Product product = innerEntry.getKey();
-                List<Long> productList = innerEntry.getValue();
+                List<BigDecimal> productList = innerEntry.getValue();
                 System.out.println("\t\t" + product +
                         ": \tAmount = " + productList.get(0) + ", \tProceeds = " + productList.get(1));
             }
@@ -229,7 +236,7 @@ public final class Demonstrating {
 
         System.out.println("Getting average price for every product\nfor the period from " +
                 START_DATE + " to " + END_DATE + " (report 4):\n");
-        Map<Product,Double> productToAverage = reportManager.getProductAveragePriceForPeriod(START_DATE, END_DATE);
+        Map<Product, Double> productToAverage = reportManager.getProductAveragePriceForPeriod(START_DATE, END_DATE);
         printMapContent(productToAverage);
         System.out.println(DELIMITER);
 

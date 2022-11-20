@@ -1,5 +1,6 @@
 package ru.aleksseii.model;
 
+import generated.tables.records.ProductRecord;
 import org.jetbrains.annotations.NotNull;
 
 public record Product(int productId,
@@ -12,6 +13,14 @@ public record Product(int productId,
 
     public Product() {
         this("", "");
+    }
+
+    public Product(@NotNull ProductRecord record) {
+        this(
+                record.getProductId(),
+                record.getName(),
+                record.getInternalCode()
+        );
     }
 
     public boolean isEmpty() {

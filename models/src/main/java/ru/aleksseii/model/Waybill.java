@@ -1,5 +1,6 @@
 package ru.aleksseii.model;
 
+import generated.tables.records.WaybillRecord;
 import org.jetbrains.annotations.NotNull;
 
 import java.sql.Date;
@@ -14,6 +15,14 @@ public record Waybill(int waybillId,
 
     public Waybill() {
         this(0, new Date(0), 0);
+    }
+
+    public Waybill(@NotNull WaybillRecord record) {
+        this(
+                record.getWaybillId(),
+                Date.valueOf(record.getWaybillDate()),
+                record.getOrgSenderId()
+        );
     }
 
     public boolean isEmpty() {
